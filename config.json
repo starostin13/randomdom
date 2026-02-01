@@ -1,0 +1,101 @@
+{
+  "lists": {
+    "main": {
+      "name": "Основные дела",
+      "items": [
+        {
+          "type": "text",
+          "value": "Сделать зарядку"
+        },
+        {
+          "type": "text",
+          "value": "Почитать книгу"
+        },
+        {
+          "type": "link",
+          "value": "https://github.com"
+        },
+        {
+          "type": "nested_list",
+          "value": "work_tasks"
+        },
+        {
+          "type": "nested_list",
+          "value": "entertainment"
+        }
+      ]
+    },
+    "work_tasks": {
+      "name": "Рабочие задачи",
+      "items": [
+        {
+          "type": "text",
+          "value": "Проверить почту"
+        },
+        {
+          "type": "text",
+          "value": "Написать отчёт"
+        },
+        {
+          "type": "link",
+          "value": "https://docs.google.com"
+        },
+        {
+          "type": "text",
+          "value": "Позвонить клиенту"
+        }
+      ]
+    },
+    "entertainment": {
+      "name": "Развлечения",
+      "items": [
+        {
+          "type": "text",
+          "value": "Посмотреть фильм"
+        },
+        {
+          "type": "text",
+          "value": "Поиграть в игру"
+        },
+        {
+          "type": "link",
+          "value": "https://www.youtube.com"
+        },
+        {
+          "type": "text",
+          "value": "Послушать музыку"
+        }
+      ]
+    },
+    "files_example": {
+      "name": "Пример с файлами",
+      "items": [
+        {
+          "type": "folder",
+          "value": "~/Documents"
+        },
+        {
+          "type": "text",
+          "value": "Обычная задача"
+        }
+      ]
+    },
+    "android_apps": {
+      "name": "Android приложения",
+      "items": [
+        {
+          "type": "application",
+          "value": "com.android.chrome/.Main"
+        },
+        {
+          "type": "application",
+          "value": "com.google.android.youtube/.HomeActivity"
+        },
+        {
+          "type": "text",
+          "value": "Другая задача"
+        }
+      ]
+    }
+  }
+}
