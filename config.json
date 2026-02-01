@@ -5,23 +5,35 @@
       "items": [
         {
           "type": "text",
-          "value": "Сделать зарядку"
+          "value": "ToDo"
         },
         {
           "type": "text",
           "value": "Почитать книгу"
         },
         {
-          "type": "link",
-          "value": "https://github.com"
+          "type": "text",
+          "value": "Crusade"
         },
         {
-          "type": "nested_list",
-          "value": "work_tasks"
+          "type": "text",
+          "value": "relax"
         },
         {
-          "type": "nested_list",
-          "value": "entertainment"
+          "type": "folder",
+          "value": "C:\\Users\\staro\\OneDrive\\Рабочий стол\\Social Media"
+        },
+        {
+          "type": "folder",
+          "value": "C:\\Users\\staro\\OneDrive\\Рабочий стол\\Games"
+        },
+        {
+          "type": "text",
+          "value": "Care"
+        },
+        {
+          "type": "text",
+          "value": "вождение"
         }
       ]
     },
