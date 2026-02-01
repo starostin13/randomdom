@@ -3,8 +3,19 @@
 Cross-platform application for random task/deed selection from lists.
 Works on Windows PC and Android devices.
 
+## 🚀 Quick Start (One Click!)
+
+### Windows
+**Just double-click `quick-start.bat`** - no command line needed! 🎯
+
+### Android (Termux)
+**Install Termux:Widget and add widget to home screen** - launch with one tap! 📱
+
+📖 **[Complete one-click setup guide →](ONE_CLICK_SETUP.md)**
+
 ## Features
 
+- ✅ **One-click launch** - no command line required!
 - ✅ Works on Windows and Android
 - ✅ Multiple task lists
 - ✅ Nested lists support

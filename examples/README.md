@@ -30,6 +30,12 @@ Android-specific configuration for launching apps:
 python randomdom.py --config examples/config_android.json
 ```
 
+**💡 Для запуска в один клик на Android:**
+См. [ONE_CLICK_SETUP.md](../ONE_CLICK_SETUP.md) - инструкция по настройке Termux:Widget для запуска прямо с экрана Android одним касанием!
+
+**💡 For one-click launch on Android:**
+See [ONE_CLICK_SETUP.md](../ONE_CLICK_SETUP.md) - instructions for setting up Termux:Widget to launch directly from your Android home screen with one tap!
+
 ### 3. config_folders.json
 File and folder-based configuration:
 - Random media selection from folders
