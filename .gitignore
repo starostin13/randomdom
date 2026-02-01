@@ -38,6 +38,8 @@ Thumbs.db
 
 # PyInstaller
 *.spec
+build/
+dist/
 
 # Testing
 .pytest_cache/

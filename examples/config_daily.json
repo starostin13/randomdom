@@ -1,0 +1,62 @@
+{
+  "lists": {
+    "morning_routine": {
+      "name": "Morning Routine",
+      "items": [
+        {"type": "text", "value": "Drink water"},
+        {"type": "text", "value": "Stretch for 5 minutes"},
+        {"type": "text", "value": "Breakfast"},
+        {"type": "text", "value": "Quick meditation"}
+      ]
+    },
+    "work": {
+      "name": "Work Tasks",
+      "items": [
+        {"type": "text", "value": "Check emails"},
+        {"type": "text", "value": "Team meeting"},
+        {"type": "text", "value": "Code review"},
+        {"type": "link", "value": "https://github.com/pulls"},
+        {"type": "text", "value": "Write documentation"}
+      ]
+    },
+    "break_time": {
+      "name": "Break Activities",
+      "items": [
+        {"type": "text", "value": "Walk outside for 10 minutes"},
+        {"type": "text", "value": "Listen to music"},
+        {"type": "link", "value": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+        {"type": "text", "value": "Read an article"},
+        {"type": "text", "value": "Chat with a friend"}
+      ]
+    },
+    "learning": {
+      "name": "Learning Activities",
+      "items": [
+        {"type": "link", "value": "https://www.coursera.org"},
+        {"type": "link", "value": "https://www.udemy.com"},
+        {"type": "text", "value": "Read a book chapter"},
+        {"type": "link", "value": "https://leetcode.com"},
+        {"type": "text", "value": "Practice coding"}
+      ]
+    },
+    "evening": {
+      "name": "Evening Routine",
+      "items": [
+        {"type": "text", "value": "Review the day"},
+        {"type": "text", "value": "Plan tomorrow"},
+        {"type": "text", "value": "Read before bed"},
+        {"type": "text", "value": "Light stretching"}
+      ]
+    },
+    "main": {
+      "name": "Daily Activities",
+      "items": [
+        {"type": "nested_list", "value": "morning_routine"},
+        {"type": "nested_list", "value": "work"},
+        {"type": "nested_list", "value": "break_time"},
+        {"type": "nested_list", "value": "learning"},
+        {"type": "nested_list", "value": "evening"}
+      ]
+    }
+  }
+}
