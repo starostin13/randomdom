@@ -180,6 +180,25 @@ def test_list_available_lists():
         os.unlink(temp_config)
 
 
+def test_malformed_json():
+    """Test handling of malformed JSON config"""
+    print("Test 7: Malformed JSON Handling...")
+    
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        # Write invalid JSON
+        f.write("{invalid json content}")
+        temp_config = f.name
+    
+    try:
+        # Should not crash, should use default config
+        selector = RandomDomSelector(temp_config)
+        assert selector.config is not None
+        assert "lists" in selector.config
+        print("✓ Malformed JSON handled gracefully")
+    finally:
+        os.unlink(temp_config)
+
+
 def run_all_tests():
     """Run all tests"""
     print("=" * 50)
@@ -194,6 +213,7 @@ def run_all_tests():
         test_nested_lists()
         test_platform_detection()
         test_list_available_lists()
+        test_malformed_json()
         
         print()
         print("=" * 50)

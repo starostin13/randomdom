@@ -57,8 +57,37 @@ class RandomDomSelector:
             self.save_config(default_config)
             return default_config
         
-        with open(self.config_file, 'r', encoding='utf-8') as f:
-            return json.load(f)
+        try:
+            with open(self.config_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except json.JSONDecodeError as e:
+            print(f"Error: Invalid JSON in config file '{self.config_file}': {e}")
+            print("Using default configuration instead.")
+            return {
+                "lists": {
+                    "main": {
+                        "name": "Main Tasks",
+                        "items": [
+                            {"type": "text", "value": "Task 1"},
+                            {"type": "text", "value": "Task 2"}
+                        ]
+                    }
+                }
+            }
+        except Exception as e:
+            print(f"Error loading config file '{self.config_file}': {e}")
+            print("Using default configuration instead.")
+            return {
+                "lists": {
+                    "main": {
+                        "name": "Main Tasks",
+                        "items": [
+                            {"type": "text", "value": "Task 1"},
+                            {"type": "text", "value": "Task 2"}
+                        ]
+                    }
+                }
+            }
     
     def save_config(self, config: Dict):
         """Save configuration to JSON file"""
@@ -145,11 +174,24 @@ class RandomDomSelector:
             if platform.system() == 'Windows':
                 os.startfile(str(selected_file))
             elif platform.system() == 'Darwin':  # macOS
-                subprocess.run(['open', str(selected_file)])
+                result = subprocess.run(['open', str(selected_file)], 
+                                      capture_output=True, text=True)
+                if result.returncode != 0:
+                    print(f"Error opening file: {result.stderr}")
+                    return False
             else:  # Linux/Android
-                subprocess.run(['xdg-open', str(selected_file)])
+                result = subprocess.run(['xdg-open', str(selected_file)], 
+                                      capture_output=True, text=True)
+                if result.returncode != 0:
+                    print(f"Error opening file: {result.stderr}")
+                    print("Tip: Install xdg-utils if not available")
+                    return False
             
             return True
+        except FileNotFoundError as e:
+            print(f"Required command not found: {e}")
+            print("On Linux, install xdg-utils: sudo apt-get install xdg-utils")
+            return False
         except Exception as e:
             print(f"Error selecting random file: {e}")
             return False
@@ -158,12 +200,21 @@ class RandomDomSelector:
         """Launch Android application by package name"""
         try:
             # Use am (Activity Manager) command to launch app
-            subprocess.run([
+            result = subprocess.run([
                 'am', 'start',
                 '-a', 'android.intent.action.MAIN',
                 '-n', package_name
-            ])
+            ], capture_output=True, text=True)
+            
+            if result.returncode != 0:
+                print(f"Error launching Android app: {result.stderr}")
+                print(f"Return code: {result.returncode}")
+                return False
+            
             return True
+        except FileNotFoundError:
+            print("Error: 'am' command not found. This feature only works on Android.")
+            return False
         except Exception as e:
             print(f"Error launching Android app: {e}")
             return False
