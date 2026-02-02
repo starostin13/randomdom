@@ -8,6 +8,8 @@ Works on Windows PC and Android devices.
 ### Windows
 **Just double-click `quick-start.bat`** - no command line needed! 🎯
 
+💡 **Want a desktop shortcut?** Run `create-desktop-shortcut.bat` - done!
+
 ### Android (Termux)
 **Install Termux:Widget and add widget to home screen** - launch with one tap! 📱
 

@@ -49,9 +49,17 @@
 2. **Дважды кликните по нему** - всё!
 3. Никаких командных строк не нужно!
 
-**Дополнительно:** Создайте ярлык на рабочем столе:
-- Правый клик на `quick-start.bat` → Отправить → Рабочий стол (создать ярлык)
-- Теперь можно запускать прямо с рабочего стола!
+#### 🎯 Создание ярлыка на рабочем столе (для ещё более быстрого доступа!)
+
+**Автоматический способ (рекомендуется):**
+1. Дважды кликните на `create-desktop-shortcut.bat`
+2. Готово! Ярлык "RandomDom" появится на рабочем столе
+3. Теперь одним кликом с рабочего стола запускается случайная задача! ✨
+
+**Ручной способ:**
+1. Правый клик на `quick-start.bat`
+2. Выберите "Отправить" → "Рабочий стол (создать ярлык)"
+3. Готово! Теперь можно запускать прямо с рабочего стола!
 
 #### Способ 2: Создать .vbs файл для запуска без окна командной строки
 
@@ -135,9 +143,17 @@ Simply run:
 2. **Double-click it** - that's it!
 3. No command line needed!
 
-**Extra:** Create a desktop shortcut:
-- Right-click on `quick-start.bat` → Send to → Desktop (create shortcut)
-- Now you can launch directly from your desktop!
+#### 🎯 Creating a Desktop Shortcut (for even faster access!)
+
+**Automatic method (recommended):**
+1. Double-click `create-desktop-shortcut.bat`
+2. Done! A "RandomDom" shortcut will appear on your desktop
+3. Now one click from your desktop launches a random task! ✨
+
+**Manual method:**
+1. Right-click on `quick-start.bat`
+2. Select "Send to" → "Desktop (create shortcut)"
+3. Done! Now you can launch directly from your desktop!
 
 #### Method 2: Create a .vbs file for silent execution (no command window)
 
