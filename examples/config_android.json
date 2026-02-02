@@ -1,0 +1,58 @@
+{
+  "lists": {
+    "main": {
+      "name": "Android Apps Launcher",
+      "items": [
+        {
+          "type": "application",
+          "value": "com.android.chrome/com.google.android.apps.chrome.Main"
+        },
+        {
+          "type": "application",
+          "value": "com.google.android.youtube/.HomeActivity"
+        },
+        {
+          "type": "application",
+          "value": "com.spotify.music/.MainActivity"
+        },
+        {
+          "type": "application",
+          "value": "com.whatsapp/.Main"
+        },
+        {
+          "type": "application",
+          "value": "com.instagram.android/.activity.MainTabActivity"
+        }
+      ]
+    },
+    "productivity": {
+      "name": "Productivity Apps",
+      "items": [
+        {
+          "type": "application",
+          "value": "com.google.android.gm/.ConversationListActivityGmail"
+        },
+        {
+          "type": "application",
+          "value": "com.todoist/.activity.HomeActivity"
+        },
+        {
+          "type": "application",
+          "value": "com.evernote/.ui.HomeActivity"
+        }
+      ]
+    },
+    "mixed": {
+      "name": "Mixed Tasks",
+      "items": [
+        {"type": "text", "value": "Take a break"},
+        {"type": "link", "value": "https://www.google.com"},
+        {
+          "type": "application",
+          "value": "com.android.chrome/com.google.android.apps.chrome.Main"
+        },
+        {"type": "nested_list", "value": "productivity"}
+      ]
+    }
+  }
+}

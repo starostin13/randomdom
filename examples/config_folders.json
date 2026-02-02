@@ -1,0 +1,63 @@
+{
+  "lists": {
+    "main": {
+      "name": "Media Selector",
+      "items": [
+        {
+          "type": "folder",
+          "value": "~/Music"
+        },
+        {
+          "type": "folder",
+          "value": "~/Videos"
+        },
+        {
+          "type": "folder",
+          "value": "~/Pictures"
+        },
+        {
+          "type": "folder",
+          "value": "~/Downloads"
+        }
+      ]
+    },
+    "music": {
+      "name": "Music Selection",
+      "items": [
+        {
+          "type": "folder",
+          "value": "~/Music/Rock"
+        },
+        {
+          "type": "folder",
+          "value": "~/Music/Pop"
+        },
+        {
+          "type": "folder",
+          "value": "~/Music/Classical"
+        },
+        {
+          "type": "link",
+          "value": "https://open.spotify.com"
+        }
+      ]
+    },
+    "documents": {
+      "name": "Random Document",
+      "items": [
+        {
+          "type": "folder",
+          "value": "~/Documents/Work"
+        },
+        {
+          "type": "folder",
+          "value": "~/Documents/Personal"
+        },
+        {
+          "type": "folder",
+          "value": "~/Documents/Books"
+        }
+      ]
+    }
+  }
+}

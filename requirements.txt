@@ -1,0 +1,13 @@
+# RandomDom has no external dependencies
+# It uses only Python standard library modules:
+# - json
+# - os
+# - platform
+# - random
+# - sys
+# - subprocess
+# - webbrowser
+# - pathlib
+# - typing
+
+# No pip install needed!
