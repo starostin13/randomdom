@@ -1,3 +1,4 @@
 @echo off
 REM Windows launcher for RandomDom
-python randomdom.py %*
+cd /d "%~dp0"
+python "%~dp0randomdom.py" %*
