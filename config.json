@@ -8,8 +8,8 @@
           "value": "ToDo"
         },
         {
-          "type": "text",
-          "value": "Почитать книгу"
+          "type": "link",
+          "value": "https://books.yandex.ru/"
         },
         {
           "type": "text",
@@ -114,6 +114,39 @@
         {
           "type": "text",
           "value": "Другая задача"
+        }
+      ]
+    },
+    "hospital_bed": {
+      "name": "На больничной койке",
+      "items": [
+        {
+          "type": "text",
+          "value": "ToDo"
+        },
+        {
+          "type": "text",
+          "value": "relax"
+        },
+        {
+          "type": "text",
+          "value": "Care"
+        },
+        {
+          "type": "text",
+          "value": "вождение"
+        },
+        {
+          "type": "text",
+          "value": "Книга"
+        },
+        {
+          "type": "text",
+          "value": "Закрой вкладку"
+        },
+        {
+          "type": "folder",
+          "value": "C:\\Users\\staro\\OneDrive\\Рабочий стол\\Social Media"
         }
       ]
     }

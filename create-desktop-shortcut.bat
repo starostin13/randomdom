@@ -12,20 +12,26 @@ set "SCRIPT_DIR=%~dp0"
 REM Use short path to avoid Unicode issues in the PowerShell command
 set "SCRIPT_DIR_SHORT=%~sdp0"
 
+set "LIST_NAME=%~1"
+if "%LIST_NAME%"=="" set "LIST_NAME=main"
+
+set "SHORTCUT_NAME=RandomDom"
+if /I not "%LIST_NAME%"=="main" set "SHORTCUT_NAME=RandomDom-%LIST_NAME%"
+
 REM Create the shortcut using PowerShell (resolve the real Desktop path)
-powershell -NoProfile -Command "try { $desktop = [Environment]::GetFolderPath('Desktop'); $shortcutPath = Join-Path $desktop 'RandomDom.lnk'; $targetPath = Join-Path '%SCRIPT_DIR_SHORT%' 'quick-start.bat'; $WshShell = New-Object -ComObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut($shortcutPath); $Shortcut.TargetPath = $targetPath; $Shortcut.WorkingDirectory = '%SCRIPT_DIR_SHORT%'; $Shortcut.IconLocation = 'C:\Windows\System32\shell32.dll,43'; $Shortcut.Description = 'RandomDom - Random Task Selector'; $Shortcut.Save(); exit 0 } catch { try { $desktop = [Environment]::GetFolderPath('Desktop'); $cmdPath = Join-Path $desktop 'RandomDom.cmd'; $lines = @('@echo off', ('cd /d "' + $env:SCRIPT_DIR_SHORT + '"'), ('call "' + $env:SCRIPT_DIR_SHORT + 'quick-start.bat"')); Set-Content -Path $cmdPath -Value $lines -Encoding ASCII; exit 2 } catch { Write-Error $_; exit 1 } }"
+powershell -NoProfile -Command "try { $desktop = [Environment]::GetFolderPath('Desktop'); $shortcutPath = Join-Path $desktop '%SHORTCUT_NAME%.lnk'; $targetPath = Join-Path '%SCRIPT_DIR_SHORT%' 'quick-start.bat'; $WshShell = New-Object -ComObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut($shortcutPath); $Shortcut.TargetPath = $targetPath; $Shortcut.Arguments = '%LIST_NAME%'; $Shortcut.WorkingDirectory = '%SCRIPT_DIR_SHORT%'; $Shortcut.IconLocation = 'C:\Windows\System32\shell32.dll,43'; $Shortcut.Description = 'RandomDom - List: %LIST_NAME%'; $Shortcut.Save(); exit 0 } catch { try { $desktop = [Environment]::GetFolderPath('Desktop'); $cmdPath = Join-Path $desktop '%SHORTCUT_NAME%.cmd'; $lines = @('@echo off', ('cd /d "' + $env:SCRIPT_DIR_SHORT + '"'), ('call "' + $env:SCRIPT_DIR_SHORT + 'quick-start.bat" %LIST_NAME%')); Set-Content -Path $cmdPath -Value $lines -Encoding ASCII; exit 2 } catch { Write-Error $_; exit 1 } }"
 
 if %errorlevel%==0 (
     echo.
     echo Success! Desktop shortcut created!
     echo.
-    echo You can now double-click the "RandomDom" icon on your desktop
+    echo You can now double-click the "%SHORTCUT_NAME%" icon on your desktop
     echo to instantly get a random task!
     echo.
 ) else if %errorlevel%==2 (
     echo.
     echo Shortcut creation failed due to Unicode path issues.
-    echo Created desktop launcher: RandomDom.cmd
+    echo Created desktop launcher: %SHORTCUT_NAME%.cmd
     echo Double-click it to instantly get a random task!
     echo.
 ) else (
