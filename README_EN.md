@@ -24,6 +24,7 @@ Works on Windows PC and Android devices.
 - ✅ Different item types:
   - Text tasks
   - Links (open in browser)
+  - Files (open a specific file)
   - Folders (select random file)
   - Android applications (Android only)
 
@@ -169,6 +170,16 @@ Selects and opens random file from folder:
 }
 ```
 You can use `~` for home directory.
+
+#### `file` - File
+Opens a specific file:
+```json
+{
+  "type": "file",
+  "value": "~/Documents/note.txt"
+}
+```
+Supports absolute paths, `~` paths, and Windows paths like `C:\\Users\\Username\\Documents\\note.txt`.
 
 #### `nested_list` - Nested List
 Navigate to another list:

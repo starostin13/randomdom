@@ -9,6 +9,7 @@ import os
 import sys
 import tempfile
 from pathlib import Path
+from unittest import mock
 
 # Add the parent directory to the path so we can import randomdom
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -199,6 +200,30 @@ def test_malformed_json():
         os.unlink(temp_config)
 
 
+def test_windows_bat_uses_file_directory_as_cwd():
+    """Test that Windows .bat files run from their own directory"""
+    print("Test 8: Windows BAT Working Directory...")
+
+    selector = RandomDomSelector()
+    bat_path = Path(r"C:\temp\example folder\run-script.bat")
+
+    with mock.patch('randomdom.platform.system', return_value='Windows'), \
+         mock.patch('randomdom.subprocess.run') as mock_run:
+        mock_run.return_value = mock.Mock(returncode=0, stderr='')
+
+        success = selector.open_path_with_default_app(bat_path)
+
+        assert success is True
+        mock_run.assert_called_once_with(
+            ['cmd', '/c', str(bat_path)],
+            cwd=str(bat_path.parent),
+            capture_output=True,
+            text=True
+        )
+
+    print("✓ Windows BAT uses file directory as cwd")
+
+
 def run_all_tests():
     """Run all tests"""
     print("=" * 50)
@@ -214,6 +239,7 @@ def run_all_tests():
         test_platform_detection()
         test_list_available_lists()
         test_malformed_json()
+        test_windows_bat_uses_file_directory_as_cwd()
         
         print()
         print("=" * 50)

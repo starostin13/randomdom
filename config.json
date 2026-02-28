@@ -5,11 +5,19 @@
       "items": [
         {
           "type": "text",
+          "value": "Смени положени"
+        },
+        {
+          "type": "text",
+          "value": "Медитаия"
+        },
+        {
+          "type": "text",
           "value": "ToDo"
         },
         {
           "type": "link",
-          "value": "https://books.yandex.ru/"
+          "value": "https://books.yandex.ru/@b3099284618/books/not_finished"
         },
         {
           "type": "text",
@@ -37,11 +45,23 @@
         },
         {
           "type": "text",
-          "value": "Книга"
+          "value": "Закрой вкладку"
         },
         {
           "type": "text",
-          "value": "Закрой вкладку"
+          "value": "wargames"
+        },
+        {
+          "type": "text",
+          "value": "уборка"
+        },
+        {
+          "type": "file",
+          "value": "C:\\Users\\staro\\OneDrive\\Рабочий стол\\Новая Папка\\open-bookmark-fast-delete.bat"
+        },
+        {
+          "type": "text",
+          "value": "Рисовать"
         }
       ]
     },
@@ -137,8 +157,8 @@
           "value": "вождение"
         },
         {
-          "type": "text",
-          "value": "Книга"
+          "type": "link",
+          "value": "https://books.yandex.ru/"
         },
         {
           "type": "text",
@@ -147,6 +167,10 @@
         {
           "type": "folder",
           "value": "C:\\Users\\staro\\OneDrive\\Рабочий стол\\Social Media"
+        },
+        {
+          "type": "folder",
+          "value":"C:\\temp\\Games"
         }
       ]
     }

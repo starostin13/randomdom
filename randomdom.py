@@ -125,6 +125,10 @@ class RandomDomSelector:
         elif item_type == "folder":
             print(f"Selecting random file from folder: {value}")
             return self.select_random_file(value)
+
+        elif item_type == "file":
+            print(f"Opening file: {value}")
+            return self.open_file(value)
         
         elif item_type == "nested_list":
             print(f"Selecting from nested list: {value}")
@@ -153,6 +157,55 @@ class RandomDomSelector:
         except Exception as e:
             print(f"Error opening link: {e}")
             return False
+
+    def open_path_with_default_app(self, target_path: Path) -> bool:
+        """Open path with system default application"""
+        try:
+            if platform.system() == 'Windows':
+                if target_path.suffix.lower() in {'.bat', '.cmd'}:
+                    result = subprocess.run([
+                        'cmd', '/c', str(target_path)
+                    ], cwd=str(target_path.parent), capture_output=True, text=True)
+                    if result.returncode != 0:
+                        print(f"Error opening file: {result.stderr}")
+                        return False
+                else:
+                    os.startfile(str(target_path))
+            elif platform.system() == 'Darwin':  # macOS
+                result = subprocess.run(['open', str(target_path)],
+                                      capture_output=True, text=True)
+                if result.returncode != 0:
+                    print(f"Error opening file: {result.stderr}")
+                    return False
+            else:  # Linux/Android
+                result = subprocess.run(['xdg-open', str(target_path)],
+                                      capture_output=True, text=True)
+                if result.returncode != 0:
+                    print(f"Error opening file: {result.stderr}")
+                    print("Tip: Install xdg-utils if not available")
+                    return False
+
+            return True
+        except FileNotFoundError as e:
+            print(f"Required command not found: {e}")
+            print("On Linux, install xdg-utils: sudo apt-get install xdg-utils")
+            return False
+        except Exception as e:
+            print(f"Error opening file: {e}")
+            return False
+
+    def open_file(self, file_path: str) -> bool:
+        """Open a specific file with default application"""
+        try:
+            path = Path(file_path).expanduser()
+            if not path.exists() or not path.is_file():
+                print(f"File not found: {file_path}")
+                return False
+
+            return self.open_path_with_default_app(path)
+        except Exception as e:
+            print(f"Error opening file: {e}")
+            return False
     
     def select_random_file(self, folder_path: str) -> bool:
         """Select and open/execute random file from folder"""
@@ -169,29 +222,8 @@ class RandomDomSelector:
             
             selected_file = random.choice(files)
             print(f"Selected file: {selected_file}")
-            
-            # Try to open the file with default application
-            if platform.system() == 'Windows':
-                os.startfile(str(selected_file))
-            elif platform.system() == 'Darwin':  # macOS
-                result = subprocess.run(['open', str(selected_file)], 
-                                      capture_output=True, text=True)
-                if result.returncode != 0:
-                    print(f"Error opening file: {result.stderr}")
-                    return False
-            else:  # Linux/Android
-                result = subprocess.run(['xdg-open', str(selected_file)], 
-                                      capture_output=True, text=True)
-                if result.returncode != 0:
-                    print(f"Error opening file: {result.stderr}")
-                    print("Tip: Install xdg-utils if not available")
-                    return False
-            
-            return True
-        except FileNotFoundError as e:
-            print(f"Required command not found: {e}")
-            print("On Linux, install xdg-utils: sudo apt-get install xdg-utils")
-            return False
+
+            return self.open_path_with_default_app(selected_file)
         except Exception as e:
             print(f"Error selecting random file: {e}")
             return False

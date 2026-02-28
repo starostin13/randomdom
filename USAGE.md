@@ -149,7 +149,24 @@ Selects a random file from a folder and opens it.
 
 **Output:** Opens a random file from the folder with the default application.
 
-### 4. Nested List (`nested_list`)
+### 4. File (`file`)
+Opens a specific file with the default application.
+
+```json
+{
+  "type": "file",
+  "value": "~/Documents/note.txt"
+}
+```
+
+**Supported paths:**
+- Absolute: `/home/user/Documents/note.txt`
+- Home relative: `~/Documents/note.txt`
+- Windows: `C:\\Users\\Username\\Documents\\note.txt`
+
+**Output:** Opens the specified file with the default application.
+
+### 5. Nested List (`nested_list`)
 References another list for selection.
 
 ```json
@@ -161,7 +178,7 @@ References another list for selection.
 
 **Output:** Selects a random item from the referenced list.
 
-### 5. Application (`application`) - Android Only
+### 6. Application (`application`) - Android Only
 Launches an Android application.
 
 ```json
