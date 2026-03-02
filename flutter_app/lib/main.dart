@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:device_apps_plus/device_apps_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
@@ -627,6 +628,110 @@ class _RandomDomAppState extends State<RandomDomApp> {
     await _saveAndApplyConfig(updatedConfig);
   }
 
+  Future<String?> _pickApplication() async {
+    if (!Platform.isAndroid) {
+      return null;
+    }
+
+    final dialogContext = _navigatorKey.currentContext;
+    if (dialogContext == null) {
+      return null;
+    }
+
+    // Show loading dialog while fetching apps
+    showDialog(
+      context: dialogContext,
+      barrierDismissible: false,
+      builder: (context) => WillPopScope(
+        onWillPop: () async => false,
+        child: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      ),
+    );
+
+    List<Application> apps = [];
+    try {
+      apps = await DeviceAppsPlusPlugin.getInstalledApplications(
+        onlyLaunchable: true,
+        includeSystemApps: false,
+      );
+      apps.sort((a, b) => (a.appName).compareTo(b.appName));
+    } catch (e) {
+      _addLog('Error fetching apps: $e');
+    }
+
+    // Close loading dialog
+    if (dialogContext.mounted) {
+      Navigator.of(dialogContext).pop();
+    }
+
+    if (apps.isEmpty) {
+      if (dialogContext.mounted) {
+        await showDialog(
+          context: dialogContext,
+          builder: (context) => AlertDialog(
+            title: const Text('Ошибка'),
+            content: const Text('Не удалось получить список приложений'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+      return null;
+    }
+
+    // Show app picker dialog
+    final selectedApp = await showDialog<Application>(
+      context: dialogContext,
+      builder: (context) => AlertDialog(
+        title: const Text('Выберите приложение'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 400,
+          child: ListView.builder(
+            itemCount: apps.length,
+            itemBuilder: (context, index) {
+              final app = apps[index];
+              return ListTile(
+                leading: app is ApplicationWithIcon
+                    ? Image.memory(
+                        app.icon,
+                        width: 40,
+                        height: 40,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(Icons.apps),
+                      )
+                    : const Icon(Icons.apps),
+                title: Text(app.appName),
+                subtitle: Text(
+                  app.packageName,
+                  style: const TextStyle(fontSize: 11),
+                ),
+                onTap: () => Navigator.of(context).pop(app),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Отмена'),
+          ),
+        ],
+      ),
+    );
+
+    if (selectedApp != null) {
+      return selectedApp.packageName;
+    }
+    return null;
+  }
+
   Future<void> _upsertItem({RandomDomItem? item, required int? index}) async {
     final config = _config;
     final list = config?.lists[_selectedListId];
@@ -693,10 +798,38 @@ class _RandomDomAppState extends State<RandomDomApp> {
                       }
                     },
                   ),
-                  TextField(
-                    controller: valueController,
-                    decoration: const InputDecoration(labelText: 'Значение'),
-                  ),
+                  if (selectedType == ItemType.application && Platform.isAndroid)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: valueController,
+                              decoration: const InputDecoration(labelText: 'Пакет приложения'),
+                              readOnly: false,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.search),
+                            tooltip: 'Выбрать приложение',
+                            onPressed: () async {
+                              final packageName = await _pickApplication();
+                              if (packageName != null) {
+                                setModalState(() {
+                                  valueController.text = packageName;
+                                });
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    TextField(
+                      controller: valueController,
+                      decoration: const InputDecoration(labelText: 'Значение'),
+                    ),
                   TextField(
                     controller: weightController,
                     decoration: const InputDecoration(labelText: 'Вес'),
