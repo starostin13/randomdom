@@ -642,8 +642,11 @@ class _RandomDomAppState extends State<RandomDomApp> {
     showDialog(
       context: dialogContext,
       barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(),
+      builder: (context) => WillPopScope(
+        onWillPop: () async => false,
+        child: const Center(
+          child: CircularProgressIndicator(),
+        ),
       ),
     );
 
