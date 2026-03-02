@@ -807,7 +807,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
                             child: TextField(
                               controller: valueController,
                               decoration: const InputDecoration(labelText: 'Пакет приложения'),
-                              readOnly: true,
+                              readOnly: false,
                             ),
                           ),
                           IconButton(
