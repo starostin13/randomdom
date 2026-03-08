@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
-import 'package:device_apps_plus/device_apps_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
@@ -10,6 +9,16 @@ import 'package:path_provider/path_provider.dart';
 import 'domain/engine.dart';
 import 'domain/executor.dart';
 import 'domain/models.dart';
+
+class _InstalledAndroidApp {
+  const _InstalledAndroidApp({
+    required this.appName,
+    required this.packageName,
+  });
+
+  final String appName;
+  final String packageName;
+}
 
 void main() {
   runApp(const RandomDomApp());
@@ -23,6 +32,7 @@ class RandomDomApp extends StatefulWidget {
 }
 
 class _RandomDomAppState extends State<RandomDomApp> {
+  static const MethodChannel _androidAppsChannel = MethodChannel('randomdom/android_apps');
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   RandomDomConfig? _config;
   String? _configFilePath;
@@ -267,25 +277,41 @@ class _RandomDomAppState extends State<RandomDomApp> {
       setState(() {
         _error = 'Путь к config.json не определён. Перезагрузите конфиг.';
       });
+      _addLog('Persist failed: config path is null or empty');
       return;
     }
 
-    final file = File(configPath);
-    final tempFile = File('$configPath.tmp');
-    final encoder = const JsonEncoder.withIndent('  ');
-    final jsonText = encoder.convert(config.toJson());
+    try {
+      _addLog('Persisting config to $configPath');
+      final file = File(configPath);
+      final tempFile = File('$configPath.tmp');
+      final encoder = const JsonEncoder.withIndent('  ');
+      final jsonText = encoder.convert(config.toJson());
 
-    await file.parent.create(recursive: true);
-    await tempFile.writeAsString('$jsonText\n');
-    if (file.existsSync()) {
-      await file.delete();
+      await file.parent.create(recursive: true);
+      _addLog('Writing temp file ${tempFile.path}');
+      await tempFile.writeAsString('$jsonText\n');
+      
+      if (await file.exists()) {
+        _addLog('Deleting old config file');
+        await file.delete();
+      }
+      
+      _addLog('Renaming temp file to $configPath');
+      await tempFile.rename(configPath);
+      _addLog('Config persisted successfully');
+
+      setState(() {
+        _status = 'Сохранено в $configPath';
+        _error = null;
+      });
+    } catch (exception) {
+      _addLog('Persist error: $exception');
+      setState(() {
+        _error = 'Ошибка сохранения: $exception';
+      });
+      rethrow;
     }
-    await tempFile.rename(configPath);
-
-    setState(() {
-      _status = 'Сохранено в $configPath';
-      _error = null;
-    });
   }
 
   Future<void> _selectRandom() async {
@@ -394,6 +420,13 @@ class _RandomDomAppState extends State<RandomDomApp> {
       return 'Вложенный список "$value" не найден';
     }
 
+    if (type == ItemType.application) {
+      final packagePattern = RegExp(r'^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z0-9_]+)+$');
+      if (!packagePattern.hasMatch(value)) {
+        return 'Для типа "Приложение" нужен package name, например com.android.settings';
+      }
+    }
+
     return null;
   }
 
@@ -472,11 +505,17 @@ class _RandomDomAppState extends State<RandomDomApp> {
       return;
     }
 
+    final dialogContext = _navigatorKey.currentContext;
+    if (dialogContext == null || !dialogContext.mounted) {
+      _addLog('Add list dialog skipped: navigator context is null');
+      return;
+    }
+
     final listNameController = TextEditingController();
     final listIdController = TextEditingController();
 
     final created = await showDialog<bool>(
-      context: context,
+      context: dialogContext,
       builder: (context) => AlertDialog(
         title: const Text('Новый список'),
         content: Column(
@@ -547,9 +586,15 @@ class _RandomDomAppState extends State<RandomDomApp> {
       return;
     }
 
+    final dialogContext = _navigatorKey.currentContext;
+    if (dialogContext == null || !dialogContext.mounted) {
+      _addLog('Rename list dialog skipped: navigator context is null');
+      return;
+    }
+
     final nameController = TextEditingController(text: list.name);
     final ok = await showDialog<bool>(
-      context: context,
+      context: dialogContext,
       builder: (context) => AlertDialog(
         title: const Text('Переименовать список'),
         content: TextField(
@@ -595,8 +640,14 @@ class _RandomDomAppState extends State<RandomDomApp> {
       return;
     }
 
+    final dialogContext = _navigatorKey.currentContext;
+    if (dialogContext == null || !dialogContext.mounted) {
+      _addLog('Delete list dialog skipped: navigator context is null');
+      return;
+    }
+
     final confirmed = await showDialog<bool>(
-      context: context,
+      context: dialogContext,
       builder: (context) => AlertDialog(
         title: const Text('Удалить список?'),
         content: Text('Список "$_selectedListId" будет удалён'),
@@ -638,98 +689,122 @@ class _RandomDomAppState extends State<RandomDomApp> {
       return null;
     }
 
-    // Show loading dialog while fetching apps
-    showDialog(
+    showDialog<void>(
       context: dialogContext,
       barrierDismissible: false,
-      builder: (context) => WillPopScope(
-        onWillPop: () async => false,
-        child: const Center(
-          child: CircularProgressIndicator(),
-        ),
-      ),
+      builder: (context) => const Center(child: CircularProgressIndicator()),
     );
 
-    List<Application> apps = [];
+    final apps = <_InstalledAndroidApp>[];
     try {
-      apps = await DeviceAppsPlusPlugin.getInstalledApplications(
-        onlyLaunchable: true,
-        includeSystemApps: false,
-      );
-      apps.sort((a, b) => (a.appName).compareTo(b.appName));
-    } catch (e) {
-      _addLog('Error fetching apps: $e');
-    }
-
-    // Close loading dialog
-    if (dialogContext.mounted) {
-      Navigator.of(dialogContext).pop();
+      final rawApps = await _androidAppsChannel.invokeMethod<List<dynamic>>('getInstalledApps');
+      for (final entry in rawApps ?? const <dynamic>[]) {
+        if (entry is! Map) {
+          continue;
+        }
+        final appName = '${entry['appName'] ?? ''}'.trim();
+        final packageName = '${entry['packageName'] ?? ''}'.trim();
+        if (appName.isEmpty || packageName.isEmpty) {
+          continue;
+        }
+        apps.add(_InstalledAndroidApp(appName: appName, packageName: packageName));
+      }
+      apps.sort((a, b) => a.appName.toLowerCase().compareTo(b.appName.toLowerCase()));
+    } catch (exception) {
+      _addLog('Failed to load apps list: $exception');
+    } finally {
+      if (dialogContext.mounted) {
+        Navigator.of(dialogContext).pop();
+      }
     }
 
     if (apps.isEmpty) {
-      if (dialogContext.mounted) {
-        await showDialog(
-          context: dialogContext,
-          builder: (context) => AlertDialog(
-            title: const Text('Ошибка'),
-            content: const Text('Не удалось получить список приложений'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-        );
+      if (!dialogContext.mounted) {
+        return null;
       }
+      await showDialog<void>(
+        context: dialogContext,
+        builder: (context) => AlertDialog(
+          title: const Text('Список приложений пуст'),
+          content: const Text('Не удалось получить установленные приложения.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
       return null;
     }
 
-    // Show app picker dialog
-    final selectedApp = await showDialog<Application>(
+    if (!dialogContext.mounted) {
+      return null;
+    }
+
+    String query = '';
+    final selectedPackage = await showDialog<String>(
       context: dialogContext,
-      builder: (context) => AlertDialog(
-        title: const Text('Выберите приложение'),
-        content: SizedBox(
-          width: double.maxFinite,
-          height: 400,
-          child: ListView.builder(
-            itemCount: apps.length,
-            itemBuilder: (context, index) {
-              final app = apps[index];
-              return ListTile(
-                leading: app is ApplicationWithIcon
-                    ? Image.memory(
-                        app.icon,
-                        width: 40,
-                        height: 40,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Icon(Icons.apps),
-                      )
-                    : const Icon(Icons.apps),
-                title: Text(app.appName),
-                subtitle: Text(
-                  app.packageName,
-                  style: const TextStyle(fontSize: 11),
-                ),
-                onTap: () => Navigator.of(context).pop(app),
-              );
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Отмена'),
-          ),
-        ],
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final filtered = apps
+              .where(
+                (app) => app.appName.toLowerCase().contains(query.toLowerCase()) ||
+                    app.packageName.toLowerCase().contains(query.toLowerCase()),
+              )
+              .toList();
+
+          return AlertDialog(
+            title: const Text('Выберите приложение'),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 420,
+              child: Column(
+                children: [
+                  TextField(
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Поиск',
+                      hintText: 'Название или package',
+                    ),
+                    onChanged: (value) {
+                      setModalState(() {
+                        query = value.trim();
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: filtered.isEmpty
+                        ? const Center(child: Text('Ничего не найдено'))
+                        : ListView.builder(
+                            itemCount: filtered.length,
+                            itemBuilder: (context, index) {
+                              final app = filtered[index];
+                              return ListTile(
+                                leading: const Icon(Icons.apps),
+                                title: Text(app.appName),
+                                subtitle: Text(app.packageName),
+                                onTap: () => Navigator.of(context).pop(app.packageName),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Отмена'),
+              ),
+            ],
+          );
+        },
       ),
     );
 
-    if (selectedApp != null) {
-      return selectedApp.packageName;
-    }
-    return null;
+    return selectedPackage;
   }
 
   Future<void> _upsertItem({RandomDomItem? item, required int? index}) async {
@@ -801,26 +876,28 @@ class _RandomDomAppState extends State<RandomDomApp> {
                   if (selectedType == ItemType.application && Platform.isAndroid)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Expanded(
-                            child: TextField(
-                              controller: valueController,
-                              decoration: const InputDecoration(labelText: 'Пакет приложения'),
-                              readOnly: false,
+                          TextField(
+                            controller: valueController,
+                            readOnly: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Выбранное приложение (package)',
                             ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.search),
-                            tooltip: 'Выбрать приложение',
+                          const SizedBox(height: 8),
+                          ElevatedButton.icon(
                             onPressed: () async {
                               final packageName = await _pickApplication();
-                              if (packageName != null) {
+                              if (packageName != null && packageName.isNotEmpty) {
                                 setModalState(() {
                                   valueController.text = packageName;
                                 });
                               }
                             },
+                            icon: const Icon(Icons.search),
+                            label: const Text('Выбрать из установленных'),
                           ),
                         ],
                       ),
@@ -898,6 +975,9 @@ class _RandomDomAppState extends State<RandomDomApp> {
         }
         final pathDialogContext = _navigatorKey.currentContext;
         if (pathDialogContext == null) {
+          return;
+        }
+        if (!pathDialogContext.mounted) {
           return;
         }
         final proceed = await showDialog<bool>(
@@ -1027,26 +1107,37 @@ class _RandomDomAppState extends State<RandomDomApp> {
     final list = config?.lists[_selectedListId];
     final index = _editingIndex;
     if (config == null || list == null || index == null || index < 0 || index >= list.items.length) {
+      _addLog('Inline delete ignored: invalid state');
       return;
     }
 
-    final updatedItems = [...list.items]..removeAt(index);
-    final updatedList = list.copyWith(items: updatedItems);
-    final updatedConfig = config.copyWith(
-      schemaVersion: 2,
-      lists: {...config.lists, _selectedListId: updatedList},
-    );
+    try {
+      _addLog('Starting inline delete for index=$index');
+      final updatedItems = [...list.items]..removeAt(index);
+      final updatedList = list.copyWith(items: updatedItems);
+      final updatedConfig = config.copyWith(
+        schemaVersion: 2,
+        lists: {...config.lists, _selectedListId: updatedList},
+      );
 
-    await _saveAndApplyConfig(updatedConfig);
-    setState(() {
-      _editingIndex = null;
-      _status = 'Элемент удалён';
-      _error = null;
-    });
-    _addLog('Inline edit deleted index=$index');
+      await _saveAndApplyConfig(updatedConfig);
+      setState(() {
+        _editingIndex = null;
+        _status = 'Элемент удалён';
+        _error = null;
+      });
+      _addLog('Inline edit deleted index=$index');
+    } catch (exception) {
+      _addLog('Inline delete error: $exception');
+      setState(() {
+        _error = 'Ошибка удаления: $exception';
+      });
+    }
   }
 
   Future<void> _deleteItem(int index) async {
+    _addLog('Delete button clicked for index=$index');
+    
     final config = _config;
     final list = config?.lists[_selectedListId];
     if (config == null || list == null) {
@@ -1054,38 +1145,75 @@ class _RandomDomAppState extends State<RandomDomApp> {
       return;
     }
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Удалить элемент?'),
-        content: Text('"${list.items[index].value}" будет удалён'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Отмена'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Удалить'),
-          ),
-        ],
-      ),
-    );
+    if (index < 0 || index >= list.items.length) {
+      _addLog('Delete ignored: invalid index=$index, list has ${list.items.length} items');
+      return;
+    }
+
+    // Сохраняем значение и контекст до показа диалога
+    final itemValue = list.items[index].value;
+    final dialogContext = _navigatorKey.currentContext;
+    if (dialogContext == null || !dialogContext.mounted) {
+      _addLog('Delete ignored: navigator context is null');
+      return;
+    }
+
+    _addLog('Showing delete confirmation dialog for item: $itemValue');
+    
+    bool? confirmed;
+    try {
+      confirmed = await showDialog<bool>(
+        context: dialogContext,
+        builder: (context) => AlertDialog(
+          title: const Text('Удалить элемент?'),
+          content: Text('"$itemValue" будет удалён'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Отмена'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Удалить'),
+            ),
+          ],
+        ),
+      );
+      _addLog('Dialog result: confirmed=$confirmed');
+    } catch (exception, stackTrace) {
+      _addLog('Dialog error: $exception');
+      _addLog('Stack trace: $stackTrace');
+      setState(() {
+        _error = 'Ошибка показа диалога: $exception';
+      });
+      return;
+    }
 
     if (confirmed != true) {
       _addLog('Delete canceled for index=$index');
       return;
     }
 
-    final updatedItems = [...list.items]..removeAt(index);
-    final updatedList = list.copyWith(items: updatedItems);
-    final updatedConfig = config.copyWith(
-      schemaVersion: 2,
-      lists: {...config.lists, _selectedListId: updatedList},
-    );
+    try {
+      _addLog('Starting delete for index=$index');
+      final updatedItems = [...list.items]..removeAt(index);
+      final updatedList = list.copyWith(items: updatedItems);
+      final updatedConfig = config.copyWith(
+        schemaVersion: 2,
+        lists: {...config.lists, _selectedListId: updatedList},
+      );
 
-    await _saveAndApplyConfig(updatedConfig);
-    _addLog('Deleted item index=$index');
+      await _saveAndApplyConfig(updatedConfig);
+      _addLog('Deleted item index=$index');
+      setState(() {
+        _status = 'Элемент удалён успешно';
+      });
+    } catch (exception) {
+      _addLog('Delete error: $exception');
+      setState(() {
+        _error = 'Ошибка удаления: $exception';
+      });
+    }
   }
 
   String _describeResult() {
