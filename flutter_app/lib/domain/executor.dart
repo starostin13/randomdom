@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:android_intent_plus/android_intent.dart';
+import 'package:flutter/services.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -8,6 +8,8 @@ import 'engine.dart';
 import 'models.dart';
 
 class RandomDomExecutor {
+  static const MethodChannel _androidAppsChannel = MethodChannel('randomdom/android_apps');
+
   Future<String> execute(SelectionResult result) async {
     final item = result.item;
 
@@ -87,24 +89,18 @@ class RandomDomExecutor {
 
   Future<void> _launchApplication(String value) async {
     if (Platform.isAndroid) {
-      final packageAndActivity = value.split('/');
-      final packageName = packageAndActivity.first;
-      String? componentName;
-
-      if (packageAndActivity.length > 1) {
-        var activity = packageAndActivity[1];
-        if (activity.startsWith('.')) {
-          activity = '$packageName$activity';
-        }
-        componentName = '$packageName/$activity';
+      final packageName = value.trim();
+      if (packageName.isEmpty || packageName.contains('/')) {
+        throw StateError('Некорректный package name: $packageName');
       }
 
-      final intent = AndroidIntent(
-        action: 'action_view',
-        package: packageName,
-        componentName: componentName,
+      final opened = await _androidAppsChannel.invokeMethod<bool>(
+        'launchApp',
+        <String, dynamic>{'packageName': packageName},
       );
-      await intent.launch();
+      if (opened != true) {
+        throw StateError('Не удалось запустить приложение: $packageName');
+      }
       return;
     }
 
