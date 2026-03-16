@@ -894,6 +894,9 @@ class _RandomDomAppState extends State<RandomDomApp> {
     final list = config?.lists[_selectedListId];
     final index = _editingIndex;
     if (config == null || list == null || index == null || index < 0 || index >= list.items.length) {
+      setState(() {
+        _error = 'Элемент для удаления не найден. Обновите список.';
+      });
       return;
     }
 
@@ -913,7 +916,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
     _addLog('Inline edit deleted index=$index');
   }
 
-  Future<void> _deleteItem(int index) async {
+  Future<void> _deleteItem(String itemId) async {
     final config = _config;
     final list = config?.lists[_selectedListId];
     if (config == null || list == null) {
@@ -921,11 +924,22 @@ class _RandomDomAppState extends State<RandomDomApp> {
       return;
     }
 
+    final index = list.items.indexWhere((item) => item.id == itemId);
+    if (index < 0) {
+      setState(() {
+        _error = 'Элемент уже отсутствует в списке';
+      });
+      _addLog('Delete ignored: id=$itemId not found');
+      return;
+    }
+
+    final itemToDelete = list.items[index];
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Удалить элемент?'),
-        content: Text('"${list.items[index].value}" будет удалён'),
+        content: Text('"${itemToDelete.value}" будет удалён'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -944,7 +958,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
       return;
     }
 
-    final updatedItems = [...list.items]..removeAt(index);
+    final updatedItems = [...list.items]..removeWhere((item) => item.id == itemId);
     final updatedList = list.copyWith(items: updatedItems);
     final updatedConfig = config.copyWith(
       schemaVersion: 2,
@@ -952,7 +966,14 @@ class _RandomDomAppState extends State<RandomDomApp> {
     );
 
     await _saveAndApplyConfig(updatedConfig);
-    _addLog('Deleted item index=$index');
+    setState(() {
+      if (_editingIndex != null && _editingIndex! >= updatedItems.length) {
+        _editingIndex = null;
+      }
+      _status = 'Элемент удалён';
+      _error = null;
+    });
+    _addLog('Deleted item index=$index id=$itemId');
   }
 
   String _describeResult() {
@@ -1317,7 +1338,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                         ),
                                         IconButton(
                                           tooltip: 'Удалить',
-                                          onPressed: () => _deleteItem(index),
+                                          onPressed: () => _deleteItem(item.id),
                                           icon: const Icon(Icons.delete),
                                         ),
                                       ],
