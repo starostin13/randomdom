@@ -514,65 +514,70 @@ class _RandomDomAppState extends State<RandomDomApp> {
     final listNameController = TextEditingController();
     final listIdController = TextEditingController();
 
-    final created = await showDialog<bool>(
-      context: dialogContext,
-      builder: (context) => AlertDialog(
-        title: const Text('Новый список'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: listIdController,
-              decoration: const InputDecoration(labelText: 'ID списка'),
+    try {
+      final created = await showDialog<bool>(
+        context: dialogContext,
+        builder: (context) => AlertDialog(
+          title: const Text('Новый список'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: listIdController,
+                decoration: const InputDecoration(labelText: 'ID списка'),
+              ),
+              TextField(
+                controller: listNameController,
+                decoration: const InputDecoration(labelText: 'Название'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Отмена'),
             ),
-            TextField(
-              controller: listNameController,
-              decoration: const InputDecoration(labelText: 'Название'),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Создать'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Отмена'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Создать'),
-          ),
-        ],
-      ),
-    );
+      );
 
-    if (created != true) {
-      return;
-    }
+      if (created != true) {
+        return;
+      }
 
-    final newId = listIdController.text.trim();
-    final newName = listNameController.text.trim();
-    if (newId.isEmpty || newName.isEmpty) {
+      final newId = listIdController.text.trim();
+      final newName = listNameController.text.trim();
+      if (newId.isEmpty || newName.isEmpty) {
+        setState(() {
+          _error = 'ID и название списка обязательны';
+        });
+        return;
+      }
+      if (config.lists.containsKey(newId)) {
+        setState(() {
+          _error = 'Список с ID "$newId" уже существует';
+        });
+        return;
+      }
+
+      final updatedLists = {
+        ...config.lists,
+        newId: RandomDomList(name: newName, items: const []),
+      };
+      final updatedConfig = config.copyWith(schemaVersion: 2, lists: updatedLists);
+
       setState(() {
-        _error = 'ID и название списка обязательны';
+        _selectedListId = newId;
       });
-      return;
+      await _saveAndApplyConfig(updatedConfig);
+    } finally {
+      listNameController.dispose();
+      listIdController.dispose();
     }
-    if (config.lists.containsKey(newId)) {
-      setState(() {
-        _error = 'Список с ID "$newId" уже существует';
-      });
-      return;
-    }
-
-    final updatedLists = {
-      ...config.lists,
-      newId: RandomDomList(name: newName, items: const []),
-    };
-    final updatedConfig = config.copyWith(schemaVersion: 2, lists: updatedLists);
-
-    setState(() {
-      _selectedListId = newId;
-    });
-    await _saveAndApplyConfig(updatedConfig);
   }
 
   Future<void> _renameCurrentList() async {
@@ -593,42 +598,46 @@ class _RandomDomAppState extends State<RandomDomApp> {
     }
 
     final nameController = TextEditingController(text: list.name);
-    final ok = await showDialog<bool>(
-      context: dialogContext,
-      builder: (context) => AlertDialog(
-        title: const Text('Переименовать список'),
-        content: TextField(
-          controller: nameController,
-          decoration: const InputDecoration(labelText: 'Название списка'),
+    try {
+      final ok = await showDialog<bool>(
+        context: dialogContext,
+        builder: (context) => AlertDialog(
+          title: const Text('Переименовать список'),
+          content: TextField(
+            controller: nameController,
+            decoration: const InputDecoration(labelText: 'Название списка'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Отмена'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Сохранить'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Отмена'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Сохранить'),
-          ),
-        ],
-      ),
-    );
+      );
 
-    if (ok != true) {
-      return;
+      if (ok != true) {
+        return;
+      }
+
+      final name = nameController.text.trim();
+      if (name.isEmpty) {
+        return;
+      }
+
+      final updatedList = list.copyWith(name: name);
+      final updatedConfig = config.copyWith(
+        schemaVersion: 2,
+        lists: {...config.lists, _selectedListId: updatedList},
+      );
+      await _saveAndApplyConfig(updatedConfig);
+    } finally {
+      nameController.dispose();
     }
-
-    final name = nameController.text.trim();
-    if (name.isEmpty) {
-      return;
-    }
-
-    final updatedList = list.copyWith(name: name);
-    final updatedConfig = config.copyWith(
-      schemaVersion: 2,
-      lists: {...config.lists, _selectedListId: updatedList},
-    );
-    await _saveAndApplyConfig(updatedConfig);
   }
 
   Future<void> _deleteCurrentList() async {
@@ -832,205 +841,210 @@ class _RandomDomAppState extends State<RandomDomApp> {
       text: (item?.weight ?? 1.0).toString(),
     );
 
-    _addLog('Open fallback edit dialog: ${item?.id ?? 'new'}');
-    final ok = await showDialog<bool>(
-      context: dialogContext,
-      builder: (modalContext) => StatefulBuilder(
-        builder: (context, setModalState) {
-          return AlertDialog(
-            title: Text(isEditing ? 'Редактировать элемент' : 'Добавить элемент'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (isEditing)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'ID: ${item.id}',
-                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+    try {
+      _addLog('Open fallback edit dialog: ${item?.id ?? 'new'}');
+      final ok = await showDialog<bool>(
+        context: dialogContext,
+        builder: (modalContext) => StatefulBuilder(
+          builder: (context, setModalState) {
+            return AlertDialog(
+              title: Text(isEditing ? 'Редактировать элемент' : 'Добавить элемент'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isEditing)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'ID: ${item!.id}',
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
                         ),
                       ),
-                    ),
-                  DropdownButtonFormField<ItemType>(
-                    initialValue: selectedType,
-                    decoration: const InputDecoration(labelText: 'Тип'),
-                    items: ItemType.values
-                        .map(
-                          (type) => DropdownMenuItem<ItemType>(
-                            value: type,
-                            child: Text(_typeLabel(type)),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setModalState(() {
-                          selectedType = value;
-                        });
-                      }
-                    },
-                  ),
-                  if (selectedType == ItemType.application && Platform.isAndroid)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          TextField(
-                            controller: valueController,
-                            readOnly: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Выбранное приложение (package)',
+                    DropdownButtonFormField<ItemType>(
+                      initialValue: selectedType,
+                      decoration: const InputDecoration(labelText: 'Тип'),
+                      items: ItemType.values
+                          .map(
+                            (type) => DropdownMenuItem<ItemType>(
+                              value: type,
+                              child: Text(_typeLabel(type)),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          ElevatedButton.icon(
-                            onPressed: () async {
-                              final packageName = await _pickApplication();
-                              if (packageName != null && packageName.isNotEmpty) {
-                                setModalState(() {
-                                  valueController.text = packageName;
-                                });
-                              }
-                            },
-                            icon: const Icon(Icons.search),
-                            label: const Text('Выбрать из установленных'),
-                          ),
-                        ],
-                      ),
-                    )
-                  else
-                    TextField(
-                      controller: valueController,
-                      decoration: const InputDecoration(labelText: 'Значение'),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setModalState(() {
+                            selectedType = value;
+                          });
+                        }
+                      },
                     ),
-                  TextField(
-                    controller: weightController,
-                    decoration: const InputDecoration(labelText: 'Вес'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  ),
-                  DropdownButtonFormField<ItemCategory>(
-                    initialValue: selectedCategory,
-                    decoration: const InputDecoration(labelText: 'Категория'),
-                    items: ItemCategory.values
-                        .map(
-                          (category) => DropdownMenuItem<ItemCategory>(
-                            value: category,
-                            child: Text(_categoryLabel(category)),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setModalState(() {
-                          selectedCategory = value;
-                        });
-                      }
-                    },
-                  ),
-                ],
+                    if (selectedType == ItemType.application && Platform.isAndroid)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            TextField(
+                              controller: valueController,
+                              readOnly: true,
+                              decoration: const InputDecoration(
+                                labelText: 'Выбранное приложение (package)',
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            ElevatedButton.icon(
+                              onPressed: () async {
+                                final packageName = await _pickApplication();
+                                if (packageName != null && packageName.isNotEmpty) {
+                                  setModalState(() {
+                                    valueController.text = packageName;
+                                  });
+                                }
+                              },
+                              icon: const Icon(Icons.search),
+                              label: const Text('Выбрать из установленных'),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      TextField(
+                        controller: valueController,
+                        decoration: const InputDecoration(labelText: 'Значение'),
+                      ),
+                    TextField(
+                      controller: weightController,
+                      decoration: const InputDecoration(labelText: 'Вес'),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    ),
+                    DropdownButtonFormField<ItemCategory>(
+                      initialValue: selectedCategory,
+                      decoration: const InputDecoration(labelText: 'Категория'),
+                      items: ItemCategory.values
+                          .map(
+                            (category) => DropdownMenuItem<ItemCategory>(
+                              value: category,
+                              child: Text(_categoryLabel(category)),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setModalState(() {
+                            selectedCategory = value;
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                ),
               ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(modalContext).pop(false),
+                  child: const Text('Отмена'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(modalContext).pop(true),
+                  child: Text(isEditing ? 'Сохранить изменения' : 'Сохранить'),
+                ),
+              ],
+            );
+          },
+        ),
+      );
+
+      if (ok != true) {
+        _addLog('Fallback edit dialog canceled');
+        return;
+      }
+
+      final value = valueController.text.trim();
+      final weight = double.tryParse(weightController.text.trim());
+      final validationError = _validateValueForType(type: selectedType, value: value);
+      if (validationError != null || weight == null || weight <= 0) {
+        setState(() {
+          _error = validationError ?? 'Вес должен быть > 0';
+        });
+        return;
+      }
+
+      if (_requiresPathValue(selectedType) &&
+          (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+        final exists = selectedType == ItemType.folder || selectedType == ItemType.randomFileFromFolder
+            ? Directory(value).existsSync()
+            : File(value).existsSync();
+        if (!exists) {
+          if (!mounted) {
+            return;
+          }
+          final pathDialogContext = _navigatorKey.currentContext;
+          if (pathDialogContext == null) {
+            return;
+          }
+          if (!pathDialogContext.mounted) {
+            return;
+          }
+          final proceed = await showDialog<bool>(
+            context: pathDialogContext,
+            builder: (context) => AlertDialog(
+              title: const Text('Путь не найден'),
+              content: Text('Путь "$value" не существует. Сохранить всё равно?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Отмена'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Сохранить'),
+                ),
+              ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(modalContext).pop(false),
-                child: const Text('Отмена'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.of(modalContext).pop(true),
-                child: Text(isEditing ? 'Сохранить изменения' : 'Сохранить'),
-              ),
-            ],
           );
-        },
-      ),
-    );
-
-    if (ok != true) {
-      _addLog('Fallback edit dialog canceled');
-      return;
-    }
-
-    final value = valueController.text.trim();
-    final weight = double.tryParse(weightController.text.trim());
-    final validationError = _validateValueForType(type: selectedType, value: value);
-    if (validationError != null || weight == null || weight <= 0) {
-      setState(() {
-        _error = validationError ?? 'Вес должен быть > 0';
-      });
-      return;
-    }
-
-    if (_requiresPathValue(selectedType) &&
-        (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
-      final exists = selectedType == ItemType.folder || selectedType == ItemType.randomFileFromFolder
-          ? Directory(value).existsSync()
-          : File(value).existsSync();
-      if (!exists) {
-        if (!mounted) {
-          return;
-        }
-        final pathDialogContext = _navigatorKey.currentContext;
-        if (pathDialogContext == null) {
-          return;
-        }
-        if (!pathDialogContext.mounted) {
-          return;
-        }
-        final proceed = await showDialog<bool>(
-          context: pathDialogContext,
-          builder: (context) => AlertDialog(
-            title: const Text('Путь не найден'),
-            content: Text('Путь "$value" не существует. Сохранить всё равно?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Отмена'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Сохранить'),
-              ),
-            ],
-          ),
-        );
-        if (proceed != true) {
-          return;
+          if (proceed != true) {
+            return;
+          }
         }
       }
+
+      final updatedItems = [...list.items];
+      final updatedItem = RandomDomItem(
+        id: item?.id ?? 'item_${DateTime.now().microsecondsSinceEpoch}',
+        type: selectedType,
+        value: value,
+        weight: weight,
+        category: selectedCategory,
+      );
+
+      if (index == null) {
+        updatedItems.add(updatedItem);
+      } else {
+        updatedItems[index] = updatedItem;
+      }
+
+      final updatedList = list.copyWith(items: updatedItems);
+      final updatedConfig = config.copyWith(
+        schemaVersion: 2,
+        lists: {...config.lists, _selectedListId: updatedList},
+      );
+
+      await _saveAndApplyConfig(updatedConfig);
+
+      setState(() {
+        _status = isEditing ? 'Элемент обновлён' : 'Элемент добавлен';
+        _error = null;
+      });
+      _addLog(isEditing ? 'Fallback edit saved' : 'Item created from dialog');
+    } finally {
+      valueController.dispose();
+      weightController.dispose();
     }
-
-    final updatedItems = [...list.items];
-    final updatedItem = RandomDomItem(
-      id: item?.id ?? 'item_${DateTime.now().microsecondsSinceEpoch}',
-      type: selectedType,
-      value: value,
-      weight: weight,
-      category: selectedCategory,
-    );
-
-    if (index == null) {
-      updatedItems.add(updatedItem);
-    } else {
-      updatedItems[index] = updatedItem;
-    }
-
-    final updatedList = list.copyWith(items: updatedItems);
-    final updatedConfig = config.copyWith(
-      schemaVersion: 2,
-      lists: {...config.lists, _selectedListId: updatedList},
-    );
-
-    await _saveAndApplyConfig(updatedConfig);
-
-    setState(() {
-      _status = isEditing ? 'Элемент обновлён' : 'Элемент добавлен';
-      _error = null;
-    });
-    _addLog(isEditing ? 'Fallback edit saved' : 'Item created from dialog');
   }
 
   Future<void> _editItem(int index) async {
