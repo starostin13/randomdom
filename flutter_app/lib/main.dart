@@ -859,7 +859,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
                         child: Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
-                            'ID: ${item.id}',
+                            'ID: ${item!.id}',
                             style: const TextStyle(fontSize: 12, color: Colors.grey),
                           ),
                         ),
