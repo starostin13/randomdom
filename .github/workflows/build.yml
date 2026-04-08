@@ -82,8 +82,40 @@ jobs:
           name: randomdom-macos
           path: dist/randomdom
 
+  build-android:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Install dependencies
+        run: flutter pub get
+        working-directory: flutter_app
+
+      - name: Build APK
+        run: flutter build apk --release
+        working-directory: flutter_app
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: randomdom-android
+          path: flutter_app/build/app/outputs/flutter-apk/app-release.apk
+
   create-release:
-    needs: [build-windows, build-linux, build-macos]
+    needs: [build-windows, build-linux, build-macos, build-android]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     permissions:
@@ -106,6 +138,12 @@ jobs:
         with:
           name: randomdom-macos
           path: ./macos
+
+      - name: Download Android artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: randomdom-android
+          path: ./android
       
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -114,5 +152,6 @@ jobs:
             ./windows/randomdom.exe
             ./linux/randomdom
             ./macos/randomdom
+            ./android/app-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
