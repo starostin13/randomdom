@@ -28,6 +28,30 @@
   - Папки (выбор случайного файла)
   - Android приложения (только на Android)
 
+## GitHub Releases
+
+- Страница релизов: https://github.com/starostin13/randomdom/releases
+- Релиз создаётся автоматически при пуше тега формата `v*` (например `v1.4.0`).
+- В релиз прикладываются артефакты для Windows, Linux, macOS и Android APK.
+- Для Windows в релиз также прикладывается Flutter portable-архив: `randomdom-flutter-windows-portable.zip`.
+
+Пример публикации новой версии:
+
+```bash
+git tag v1.4.0
+git push origin v1.4.0
+```
+
+Полный пример (если есть несохранённые изменения в репозитории):
+
+```bash
+git add .
+git commit -m "release: v1.4.0"
+git push origin main
+git tag -a v1.4.0 -m "Release v1.4.0"
+git push origin v1.4.0
+```
+
 ## Установка
 
 ### Windows

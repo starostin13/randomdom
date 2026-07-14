@@ -1561,12 +1561,23 @@ class _RandomDomAppState extends State<RandomDomApp> {
                         Expanded(
                           child: Builder(
                             builder: (context) {
+                              final mediaQuery = MediaQuery.of(context);
+                              final isWideAndroidWindow =
+                                  Platform.isAndroid && mediaQuery.size.width > mediaQuery.size.height;
+                              final listBottomPadding =
+                                  (isWideAndroidWindow ? 136.0 : 16.0) + mediaQuery.padding.bottom;
+                              final listRightPadding =
+                                  (isWideAndroidWindow ? 180.0 : 0.0) + mediaQuery.padding.right;
                               final currentList = _config!.lists[_selectedListId];
                               final items = currentList?.items ?? const <RandomDomItem>[];
                               if (items.isEmpty) {
                                 return const Center(child: Text('Список пуст'));
                               }
                               return ListView.separated(
+                                padding: EdgeInsets.only(
+                                  right: listRightPadding,
+                                  bottom: listBottomPadding,
+                                ),
                                 itemCount: items.length,
                                 separatorBuilder: (_, _) => const Divider(height: 1),
                                 itemBuilder: (context, index) {
