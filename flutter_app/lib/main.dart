@@ -24,11 +24,72 @@ void main() {
   runApp(const RandomDomApp());
 }
 
+enum _TodoListViewMode { list, chart }
+
 class RandomDomApp extends StatefulWidget {
   const RandomDomApp({super.key});
 
   @override
   State<RandomDomApp> createState() => _RandomDomAppState();
+}
+
+class _TaskDistributionChart extends CustomPainter {
+  const _TaskDistributionChart({
+    required this.items,
+  });
+
+  final List<RandomDomItem> items;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final totalWeight = items.fold<double>(0, (sum, item) => sum + item.weight);
+    if (totalWeight <= 0) {
+      return;
+    }
+
+    final center = Offset(size.width / 2, size.height / 2);
+    const outerRadius = 100.0;
+    const innerRadius = 54.0;
+    var startAngle = -pi / 2;
+
+    for (var index = 0; index < items.length; index++) {
+      final item = items[index];
+      final sweepAngle = (item.weight / totalWeight) * (2 * pi);
+      final color = _colorForItem(item, index);
+
+      final paint = Paint()
+        ..style = PaintingStyle.fill
+        ..color = color;
+
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: outerRadius),
+        startAngle,
+        sweepAngle,
+        true,
+        paint,
+      );
+
+      startAngle += sweepAngle;
+    }
+
+    final centerCirclePaint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = Colors.white.withOpacity(0.12);
+    canvas.drawCircle(center, innerRadius * 0.9, centerCirclePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TaskDistributionChart oldDelegate) {
+    return oldDelegate.items != items;
+  }
+
+  static Color _colorForItem(RandomDomItem item, int index) {
+    final hue = item.category == ItemCategory.fun
+        ? 24.0 + (index * 14.0)
+        : 210.0 + (index * 11.0);
+    final color = HSLColor.fromAHSL(1.0, hue % 360.0, 0.75, 0.6);
+    return color.toColor();
+  }
 }
 
 class _RandomDomAppState extends State<RandomDomApp> {
@@ -44,6 +105,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
   bool _showDebugLog = false;
   final List<String> _runtimeLog = [];
   String _selectedListId = 'main';
+  _TodoListViewMode _listViewMode = _TodoListViewMode.list;
   int? _editingIndex;
   ItemType _editingType = ItemType.text;
   ItemCategory _editingCategory = ItemCategory.serious;
@@ -152,6 +214,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
     final paths = <String>{
       'config.json',
       '../config.json',
+      '${Directory.systemTemp.path}${Platform.pathSeparator}config.json',
     };
 
     final separator = Platform.pathSeparator;
@@ -1236,6 +1299,11 @@ class _RandomDomAppState extends State<RandomDomApp> {
     return result.item.value;
   }
 
+  List<RandomDomItem> _currentItems() {
+    final currentList = _config?.lists[_selectedListId];
+    return currentList?.items ?? const <RandomDomItem>[];
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -1470,6 +1538,27 @@ class _RandomDomAppState extends State<RandomDomApp> {
                             ),
                           ],
                         ),
+                        const SizedBox(height: 8),
+                        SegmentedButton<_TodoListViewMode>(
+                          segments: const [
+                            ButtonSegment(
+                              value: _TodoListViewMode.list,
+                              label: Text('Список'),
+                              icon: Icon(Icons.list),
+                            ),
+                            ButtonSegment(
+                              value: _TodoListViewMode.chart,
+                              label: Text('Круговая диаграмма'),
+                              icon: Icon(Icons.pie_chart),
+                            ),
+                          ],
+                          selected: {_listViewMode},
+                          onSelectionChanged: (selection) {
+                            setState(() {
+                              _listViewMode = selection.first;
+                            });
+                          },
+                        ),
                         if (_editingIndex != null)
                           Card(
                             margin: const EdgeInsets.only(top: 8, bottom: 8),
@@ -1568,11 +1657,45 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                   (isWideAndroidWindow ? 136.0 : 16.0) + mediaQuery.padding.bottom;
                               final listRightPadding =
                                   (isWideAndroidWindow ? 180.0 : 0.0) + mediaQuery.padding.right;
-                              final currentList = _config!.lists[_selectedListId];
-                              final items = currentList?.items ?? const <RandomDomItem>[];
+                              final items = _currentItems();
                               if (items.isEmpty) {
                                 return const Center(child: Text('Список пуст'));
                               }
+
+                              if (_listViewMode == _TodoListViewMode.chart) {
+                                return SingleChildScrollView(
+                                  padding: EdgeInsets.only(
+                                    right: listRightPadding,
+                                    bottom: listBottomPadding,
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      const SizedBox(height: 8),
+                                      CustomPaint(
+                                        painter: _TaskDistributionChart(items: items),
+                                        child: const SizedBox(width: 260, height: 260),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 8,
+                                        children: items.asMap().entries.map((entry) {
+                                          final index = entry.key;
+                                          final item = entry.value;
+                                          return Chip(
+                                            avatar: CircleAvatar(
+                                              backgroundColor: _TaskDistributionChart._colorForItem(item, index),
+                                              child: const SizedBox.shrink(),
+                                            ),
+                                            label: Text('${item.value} (${item.weight.toStringAsFixed(2)})'),
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }
+
                               return ListView.separated(
                                 padding: EdgeInsets.only(
                                   right: listRightPadding,
