@@ -139,4 +139,52 @@ void main() {
     expect(seriousTaskIndex, lessThan(funTaskIndex),
         reason: 'Serious task should appear before fun task');
   });
+
+  test('Task balance helper moves weight evenly between serious and fun tasks', () {
+    final items = const [
+      RandomDomItem(
+        id: 'serious_1',
+        type: ItemType.text,
+        value: 'Проверить почту',
+        weight: 2,
+        category: ItemCategory.serious,
+      ),
+      RandomDomItem(
+        id: 'serious_2',
+        type: ItemType.text,
+        value: 'Сделать план',
+        weight: 2,
+        category: ItemCategory.serious,
+      ),
+      RandomDomItem(
+        id: 'fun_1',
+        type: ItemType.text,
+        value: 'Погулять',
+        weight: 1,
+        category: ItemCategory.fun,
+      ),
+      RandomDomItem(
+        id: 'fun_2',
+        type: ItemType.text,
+        value: 'Послушать музыку',
+        weight: 1,
+        category: ItemCategory.fun,
+      ),
+    ];
+
+    final balanced = TaskBalanceUtils.applyBalance(items, 0.0);
+    final seriousWeights = balanced
+        .where((item) => item.category == ItemCategory.serious)
+        .map((item) => item.weight)
+        .toList();
+    final funWeights = balanced
+        .where((item) => item.category == ItemCategory.fun)
+        .map((item) => item.weight)
+        .toList();
+
+    expect(seriousWeights, everyElement(closeTo(1.5, 1e-6)));
+    expect(funWeights, everyElement(closeTo(1.5, 1e-6)));
+    expect(TaskBalanceUtils.itemBalance(balanced), closeTo(0.0, 1e-6));
+  });
 }
+
