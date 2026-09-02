@@ -49,6 +49,7 @@ class _TaskDistributionChart extends CustomPainter {
 
     final center = Offset(size.width / 2, size.height / 2);
     const outerRadius = 100.0;
+    final chartRect = Rect.fromCircle(center: center, radius: outerRadius);
     var startAngle = -pi / 2;
 
     for (var index = 0; index < items.length; index++) {
@@ -60,7 +61,6 @@ class _TaskDistributionChart extends CustomPainter {
         ..style = PaintingStyle.fill
         ..color = color;
 
-      final chartRect = Rect.fromCircle(center: center, radius: outerRadius);
       canvas.drawArc(chartRect, startAngle, sweepAngle, true, paint);
 
       if (item.category == ItemCategory.serious) {
@@ -79,7 +79,9 @@ class _TaskDistributionChart extends CustomPainter {
         canvas
           ..save()
           ..clipPath(segmentPath);
-        for (var offset = -size.height; offset < size.width + size.height; offset += 12) {
+        for (var offset = -size.height;
+            offset < size.width + size.height;
+            offset += 12) {
           canvas.drawLine(
             Offset(offset, size.height),
             Offset(offset + size.height, 0),
