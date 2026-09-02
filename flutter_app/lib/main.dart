@@ -1657,6 +1657,15 @@ class _RandomDomAppState extends State<RandomDomApp> {
                               }
 
                               if (_listViewMode == _TodoListViewMode.chart) {
+                                final sortedItems = List<RandomDomItem>.from(items)
+                                  ..sort((a, b) {
+                                    if (a.category == ItemCategory.serious && b.category == ItemCategory.fun) {
+                                      return -1;
+                                    } else if (a.category == ItemCategory.fun && b.category == ItemCategory.serious) {
+                                      return 1;
+                                    }
+                                    return 0;
+                                  });
                                 return SingleChildScrollView(
                                   padding: EdgeInsets.only(
                                     right: listRightPadding,
@@ -1666,14 +1675,14 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                     children: [
                                       const SizedBox(height: 8),
                                       CustomPaint(
-                                        painter: _TaskDistributionChart(items: items),
+                                        painter: _TaskDistributionChart(items: sortedItems),
                                         child: const SizedBox(width: 260, height: 260),
                                       ),
                                       const SizedBox(height: 16),
                                       Wrap(
                                         spacing: 8,
                                         runSpacing: 8,
-                                        children: items.asMap().entries.map((entry) {
+                                        children: sortedItems.asMap().entries.map((entry) {
                                           final index = entry.key;
                                           final item = entry.value;
                                           return Chip(
