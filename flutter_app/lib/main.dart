@@ -49,7 +49,6 @@ class _TaskDistributionChart extends CustomPainter {
 
     final center = Offset(size.width / 2, size.height / 2);
     const outerRadius = 100.0;
-    const innerRadius = 54.0;
     var startAngle = -pi / 2;
 
     for (var index = 0; index < items.length; index++) {
@@ -71,11 +70,6 @@ class _TaskDistributionChart extends CustomPainter {
 
       startAngle += sweepAngle;
     }
-
-    final centerCirclePaint = Paint()
-      ..style = PaintingStyle.fill
-      ..color = Colors.white.withOpacity(0.12);
-    canvas.drawCircle(center, innerRadius * 0.9, centerCirclePaint);
   }
 
   @override
