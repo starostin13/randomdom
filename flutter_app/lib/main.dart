@@ -33,6 +33,79 @@ class RandomDomApp extends StatefulWidget {
   State<RandomDomApp> createState() => _RandomDomAppState();
 }
 
+class TaskBalanceUtils {
+  const TaskBalanceUtils._();
+
+  static double itemBalance(List<RandomDomItem> items) {
+    final seriousWeight = items
+        .where((item) => item.category == ItemCategory.serious)
+        .fold<double>(0, (sum, item) => sum + item.weight);
+    final funWeight = items
+        .where((item) => item.category == ItemCategory.fun)
+        .fold<double>(0, (sum, item) => sum + item.weight);
+    final totalWeight = seriousWeight + funWeight;
+
+    if (totalWeight <= 0) {
+      return 0;
+    }
+
+    return ((funWeight / totalWeight) * 2.0) - 1.0;
+  }
+
+  static List<RandomDomItem> applyBalance(List<RandomDomItem> items, double balance) {
+    final normalizedBalance = balance.clamp(-1.0, 1.0);
+    final seriousItems = items
+        .where((item) => item.category == ItemCategory.serious)
+        .toList(growable: false);
+    final funItems = items
+        .where((item) => item.category == ItemCategory.fun)
+        .toList(growable: false);
+
+    if (seriousItems.isEmpty || funItems.isEmpty) {
+      return items;
+    }
+
+    final seriousWeight = seriousItems.fold<double>(0, (sum, item) => sum + item.weight);
+    final funWeight = funItems.fold<double>(0, (sum, item) => sum + item.weight);
+    final totalWeight = seriousWeight + funWeight;
+
+    if (totalWeight <= 0) {
+      return items;
+    }
+
+    final targetFunWeight = totalWeight * ((normalizedBalance + 1.0) / 2.0);
+    final delta = targetFunWeight - funWeight;
+    if (delta.abs() < 1e-9) {
+      return items;
+    }
+
+    final result = <RandomDomItem>[];
+    for (final item in items) {
+      if (item.category == ItemCategory.serious) {
+        final adjustedWeight = (item.weight - (delta / seriousItems.length)).clamp(0.1, 9999.0);
+        result.add(item.copyWith(weight: adjustedWeight));
+        continue;
+      }
+
+      final adjustedWeight = (item.weight + (delta / funItems.length)).clamp(0.1, 9999.0);
+      result.add(item.copyWith(weight: adjustedWeight));
+    }
+
+    return result;
+  }
+
+  static String label(double balance) {
+    final normalizedBalance = balance.clamp(-1.0, 1.0);
+    if (normalizedBalance > 0.1) {
+      return 'Больше весёлых';
+    }
+    if (normalizedBalance < -0.1) {
+      return 'Больше серьёзных';
+    }
+    return 'Сбалансировано';
+  }
+}
+
 class _TaskDistributionChart extends CustomPainter {
   const _TaskDistributionChart({
     required this.items,
@@ -569,6 +642,35 @@ class _RandomDomAppState extends State<RandomDomApp> {
       _lastResult = result.copyWith(item: updatedItem);
     });
 
+    await _persistConfig(updatedConfig);
+  }
+
+  Future<void> _applyCategoryBalance(double balance) async {
+    final config = _config;
+    if (config == null) {
+      return;
+    }
+
+    final list = config.lists[_selectedListId];
+    if (list == null) {
+      return;
+    }
+
+    final updatedItems = TaskBalanceUtils.applyBalance(list.items, balance);
+    if (updatedItems == list.items) {
+      return;
+    }
+
+    final updatedList = list.copyWith(items: updatedItems);
+    final updatedConfig = config.copyWith(
+      schemaVersion: 2,
+      lists: {...config.lists, _selectedListId: updatedList},
+    );
+
+    setState(() {
+      _config = updatedConfig;
+      _status = 'Баланс задач: ${TaskBalanceUtils.label(balance)}';
+    });
     await _persistConfig(updatedConfig);
   }
 
@@ -1420,6 +1522,41 @@ class _RandomDomAppState extends State<RandomDomApp> {
                             ),
                           ),
                         Text('Настроение: ${_selectedMood == 'bad' ? 'плохо' : 'хорошо'}'),
+                        const SizedBox(height: 12),
+                        Builder(
+                          builder: (context) {
+                            final items = _currentItems();
+                            final hasBothCategories = items.any((item) => item.category == ItemCategory.fun) &&
+                                items.any((item) => item.category == ItemCategory.serious);
+                            final balance = TaskBalanceUtils.itemBalance(items);
+                            final funShare = ((balance + 1.0) / 2.0 * 100).round();
+                            final seriousShare = 100 - funShare;
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Баланс задач: ${TaskBalanceUtils.label(balance)}'),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Серьёзные $seriousShare% / Весёлые $funShare%',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                                Slider(
+                                  value: balance.clamp(-1.0, 1.0),
+                                  min: -1.0,
+                                  max: 1.0,
+                                  divisions: 20,
+                                  label: TaskBalanceUtils.label(balance),
+                                  onChanged: hasBothCategories
+                                      ? (value) {
+                                          _applyCategoryBalance(value);
+                                        }
+                                      : null,
+                                ),
+                              ],
+                            );
+                          },
+                        ),
                         const SizedBox(height: 12),
                         const Text('Список'),
                         DropdownButton<String>(
