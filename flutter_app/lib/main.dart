@@ -251,6 +251,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
   String? _rollingPreview;
   final Random _random = Random();
   final RandomDomExecutor _executor = RandomDomExecutor();
+  final GlobalKey _chartPaintKey = GlobalKey();
 
   @override
   void initState() {
@@ -1524,17 +1525,18 @@ class _RandomDomAppState extends State<RandomDomApp> {
   }
 
   Future<void> _onChartPointerDown(
-    PointerDownEvent event,
+    int buttons,
+    Offset localPosition,
     List<RandomDomItem> sortedItems,
     Size chartSize,
   ) async {
-    if ((event.buttons & kPrimaryButton) == 0) {
+    if ((buttons & kPrimaryButton) == 0) {
       return;
     }
 
     final tappedChartIndex = _TaskDistributionChart.itemIndexAtPosition(
       items: sortedItems,
-      localPosition: event.localPosition,
+      localPosition: localPosition,
       size: chartSize,
     );
     if (tappedChartIndex == null) {
@@ -1550,11 +1552,12 @@ class _RandomDomAppState extends State<RandomDomApp> {
   }
 
   void _handleChartPointerDown(
-    PointerDownEvent event,
+    int buttons,
+    Offset localPosition,
     List<RandomDomItem> sortedItems,
     Size chartSize,
   ) {
-    unawaited(_onChartPointerDown(event, sortedItems, chartSize));
+    unawaited(_onChartPointerDown(buttons, localPosition, sortedItems, chartSize));
   }
 
   @override
@@ -1970,20 +1973,26 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                   child: Column(
                                     children: [
                                       const SizedBox(height: 8),
-                                      Builder(
-                                        builder: (chartContext) => Listener(
-                                          behavior: HitTestBehavior.opaque,
-                                          onPointerDown: (event) {
-                                            final chartBox = chartContext.findRenderObject() as RenderBox?;
-                                            if (chartBox == null) {
-                                              return;
-                                            }
-                                            _handleChartPointerDown(event, sortedItems, chartBox.size);
-                                          },
-                                          child: CustomPaint(
-                                            painter: _TaskDistributionChart(items: sortedItems),
-                                            child: const SizedBox(width: 260, height: 260),
-                                          ),
+                                      Listener(
+                                        behavior: HitTestBehavior.opaque,
+                                        onPointerDown: (event) {
+                                          final chartBox =
+                                              _chartPaintKey.currentContext?.findRenderObject() as RenderBox?;
+                                          if (chartBox == null) {
+                                            return;
+                                          }
+                                          final localPosition = chartBox.globalToLocal(event.position);
+                                          _handleChartPointerDown(
+                                            event.buttons,
+                                            localPosition,
+                                            sortedItems,
+                                            chartBox.size,
+                                          );
+                                        },
+                                        child: CustomPaint(
+                                          key: _chartPaintKey,
+                                          painter: _TaskDistributionChart(items: sortedItems),
+                                          child: const SizedBox(width: 260, height: 260),
                                         ),
                                       ),
                                       const SizedBox(height: 16),
