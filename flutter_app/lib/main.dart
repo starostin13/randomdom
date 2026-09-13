@@ -28,14 +28,6 @@ void main() {
 
 enum _TodoListViewMode { list, chart }
 
-class _IndexedTaskItem {
-  const _IndexedTaskItem({
-    required this.item,
-  });
-
-  final RandomDomItem item;
-}
-
 class RandomDomApp extends StatefulWidget {
   const RandomDomApp({super.key});
 
@@ -1533,23 +1525,22 @@ class _RandomDomAppState extends State<RandomDomApp> {
 
   Future<void> _onChartPointerDown(
     PointerDownEvent event,
-    List<_IndexedTaskItem> sortedItems,
+    List<RandomDomItem> sortedItems,
     Size chartSize,
   ) async {
     if ((event.buttons & kPrimaryButton) == 0) {
       return;
     }
 
-    final chartItems = sortedItems.map((entry) => entry.item).toList(growable: false);
     final tappedChartIndex = _TaskDistributionChart.itemIndexAtPosition(
-      items: chartItems,
+      items: sortedItems,
       localPosition: event.localPosition,
       size: chartSize,
     );
     if (tappedChartIndex == null) {
       return;
     }
-    final tappedItemId = sortedItems[tappedChartIndex].item.id;
+    final tappedItemId = sortedItems[tappedChartIndex].id;
     final tappedListId = _selectedListId;
     final updateFuture = _chartWeightUpdateFuture
         .catchError((Object _) {})
@@ -1560,7 +1551,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
 
   void _handleChartPointerDown(
     PointerDownEvent event,
-    List<_IndexedTaskItem> sortedItems,
+    List<RandomDomItem> sortedItems,
     Size chartSize,
   ) {
     unawaited(_onChartPointerDown(event, sortedItems, chartSize));
@@ -1960,17 +1951,13 @@ class _RandomDomAppState extends State<RandomDomApp> {
                               }
 
                               if (_listViewMode == _TodoListViewMode.chart) {
-                                final sortedItems = items.asMap().entries.map((entry) {
-                                  return _IndexedTaskItem(
-                                    item: entry.value,
-                                  );
-                                }).toList()
+                                final sortedItems = List<RandomDomItem>.from(items)
                                   ..sort((a, b) {
-                                    if (a.item.category == ItemCategory.serious &&
-                                        b.item.category == ItemCategory.fun) {
+                                    if (a.category == ItemCategory.serious &&
+                                        b.category == ItemCategory.fun) {
                                       return -1;
-                                    } else if (a.item.category == ItemCategory.fun &&
-                                        b.item.category == ItemCategory.serious) {
+                                    } else if (a.category == ItemCategory.fun &&
+                                        b.category == ItemCategory.serious) {
                                       return 1;
                                     }
                                     return 0;
@@ -1994,11 +1981,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                             _handleChartPointerDown(event, sortedItems, chartBox.size);
                                           },
                                           child: CustomPaint(
-                                            painter: _TaskDistributionChart(
-                                              items: sortedItems.map((entry) => entry.item).toList(
-                                                    growable: false,
-                                                  ),
-                                            ),
+                                            painter: _TaskDistributionChart(items: sortedItems),
                                             child: const SizedBox(width: 260, height: 260),
                                           ),
                                         ),
@@ -2009,7 +1992,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                         runSpacing: 8,
                                         children: sortedItems.asMap().entries.map((entry) {
                                           final index = entry.key;
-                                          final item = entry.value.item;
+                                          final item = entry.value;
                                           return Chip(
                                             avatar: CircleAvatar(
                                               backgroundColor: _TaskDistributionChart._colorForItem(item, index),
