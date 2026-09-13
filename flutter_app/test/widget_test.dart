@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:randomdom_flutter/domain/models.dart';
@@ -192,6 +193,18 @@ void main() {
     expect(find.text('Проверить почту (2.00)'), findsOneWidget);
 
     final chartCenter = tester.getCenter(find.byType(CustomPaint).first);
+    final secondaryClick = await tester.createGesture(
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    final chartPoint = chartCenter + const Offset(50, 0);
+    await secondaryClick.addPointer(location: chartPoint);
+    await secondaryClick.down(chartPoint);
+    await secondaryClick.up();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Проверить почту (2.00)'), findsOneWidget);
+
     await tester.tapAt(chartCenter + const Offset(50, 0));
     await tester.pumpAndSettle();
 

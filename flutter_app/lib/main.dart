@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -1495,16 +1496,16 @@ class _RandomDomAppState extends State<RandomDomApp> {
   Future<void> _onChartPointerDown(
     PointerDownEvent event,
     List<RandomDomItem> sortedItems,
+    Size chartSize,
   ) async {
-    const primaryButton = 1;
-    if ((event.buttons & primaryButton) == 0) {
+    if ((event.buttons & kPrimaryButton) == 0) {
       return;
     }
 
     final tappedItem = _TaskDistributionChart.itemAtPosition(
       items: sortedItems,
       localPosition: event.localPosition,
-      size: const Size(260, 260),
+      size: chartSize,
     );
     if (tappedItem == null) {
       return;
@@ -1923,11 +1924,19 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                   child: Column(
                                     children: [
                                       const SizedBox(height: 8),
-                                      Listener(
-                                        onPointerDown: (event) => _onChartPointerDown(event, sortedItems),
-                                        child: CustomPaint(
-                                          painter: _TaskDistributionChart(items: sortedItems),
-                                          child: const SizedBox(width: 260, height: 260),
+                                      Builder(
+                                        builder: (chartContext) => Listener(
+                                          onPointerDown: (event) {
+                                            final chartBox = chartContext.findRenderObject() as RenderBox?;
+                                            if (chartBox == null) {
+                                              return;
+                                            }
+                                            _onChartPointerDown(event, sortedItems, chartBox.size);
+                                          },
+                                          child: CustomPaint(
+                                            painter: _TaskDistributionChart(items: sortedItems),
+                                            child: const SizedBox(width: 260, height: 260),
+                                          ),
                                         ),
                                       ),
                                       const SizedBox(height: 16),
