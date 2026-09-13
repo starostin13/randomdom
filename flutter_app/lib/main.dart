@@ -1967,16 +1967,18 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                       Builder(
                                         builder: (chartContext) => Listener(
                                           behavior: HitTestBehavior.opaque,
-                                          onPointerDown: (event) {
+                                          onPointerDown: (event) async {
                                             final chartBox = chartContext.findRenderObject() as RenderBox?;
                                             if (chartBox == null) {
                                               return;
                                             }
-                                            _onChartPointerDown(
-                                              event,
-                                              sortedItems,
-                                              chartBox.size,
-                                            ).catchError((Object error, StackTrace stackTrace) {
+                                            try {
+                                              await _onChartPointerDown(
+                                                event,
+                                                sortedItems,
+                                                chartBox.size,
+                                              );
+                                            } catch (error, stackTrace) {
                                               _addLog('Chart pointer handling error: $error');
                                               _addLog('Stack trace: $stackTrace');
                                               if (!mounted) {
@@ -1985,7 +1987,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                               setState(() {
                                                 _error = 'Ошибка изменения веса: $error';
                                               });
-                                            });
+                                            }
                                           },
                                           child: CustomPaint(
                                             painter: _TaskDistributionChart(
