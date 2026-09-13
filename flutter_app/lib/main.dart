@@ -1495,6 +1495,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
     required String listId,
     required String itemId,
     required String expectedChartSignature,
+    required _TodoListViewMode expectedViewMode,
   }) async {
     final config = _config;
     if (config == null) {
@@ -1502,6 +1503,9 @@ class _RandomDomAppState extends State<RandomDomApp> {
     }
     final list = config.lists[listId];
     if (list == null) {
+      return;
+    }
+    if (_listViewMode != expectedViewMode) {
       return;
     }
     final currentSortedItems = _chartSortedItems(list.items);
@@ -1571,6 +1575,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
     }
     final tappedItemId = sortedItems[tappedChartIndex].id;
     final tappedListId = _selectedListId;
+    final tappedViewMode = _listViewMode;
     final tappedChartSignature = _chartItemsSignature(sortedItems);
     final updateFuture = _chartWeightUpdateFuture
         .catchError((Object _) {})
@@ -1579,6 +1584,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
             listId: tappedListId,
             itemId: tappedItemId,
             expectedChartSignature: tappedChartSignature,
+            expectedViewMode: tappedViewMode,
           ),
         );
     _chartWeightUpdateFuture = updateFuture;
