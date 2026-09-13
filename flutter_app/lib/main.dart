@@ -256,6 +256,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
   final TextEditingController _editingWeightController = TextEditingController();
   SelectionResult? _lastResult;
   bool _isSelecting = false;
+  bool _isChartWeightUpdating = false;
   String? _rollingPreview;
   final Random _random = Random();
   final RandomDomExecutor _executor = RandomDomExecutor();
@@ -1518,6 +1519,9 @@ class _RandomDomAppState extends State<RandomDomApp> {
     List<_IndexedTaskItem> sortedItems,
     Size chartSize,
   ) async {
+    if (_isChartWeightUpdating) {
+      return;
+    }
     if ((event.buttons & kPrimaryButton) == 0) {
       return;
     }
@@ -1531,7 +1535,12 @@ class _RandomDomAppState extends State<RandomDomApp> {
     if (tappedChartIndex == null) {
       return;
     }
-    await _increaseSelectedListItemWeight(sortedItems[tappedChartIndex].originalIndex);
+    _isChartWeightUpdating = true;
+    try {
+      await _increaseSelectedListItemWeight(sortedItems[tappedChartIndex].originalIndex);
+    } finally {
+      _isChartWeightUpdating = false;
+    }
   }
 
   @override
