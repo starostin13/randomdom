@@ -1547,9 +1547,9 @@ class _RandomDomAppState extends State<RandomDomApp> {
     if (tappedChartIndex == null) {
       return;
     }
-    final updateFuture = _chartWeightUpdateFuture.then<void>(
-      (_) => _increaseSelectedListItemWeight(sortedItems[tappedChartIndex].originalIndex),
-    );
+    final updateFuture = _chartWeightUpdateFuture
+        .catchError((Object _) {})
+        .then<void>((_) => _increaseSelectedListItemWeight(sortedItems[tappedChartIndex].originalIndex));
     _chartWeightUpdateFuture = updateFuture;
     await updateFuture;
   }
