@@ -1472,9 +1472,14 @@ class _RandomDomAppState extends State<RandomDomApp> {
     return currentList?.items ?? const <RandomDomItem>[];
   }
 
+  String _listItemsSignature(List<RandomDomItem> items) {
+    return items.map((item) => item.id).join('|');
+  }
+
   Future<void> _increaseListItemWeight({
     required String listId,
     required String itemId,
+    required String expectedListSignature,
   }) async {
     final config = _config;
     if (config == null) {
@@ -1482,6 +1487,9 @@ class _RandomDomAppState extends State<RandomDomApp> {
     }
     final list = config.lists[listId];
     if (list == null) {
+      return;
+    }
+    if (_listItemsSignature(list.items) != expectedListSignature) {
       return;
     }
     final itemIndex = list.items.indexWhere((item) => item.id == itemId);
@@ -1547,9 +1555,16 @@ class _RandomDomAppState extends State<RandomDomApp> {
     }
     final tappedItemId = sortedItems[tappedChartIndex].id;
     final tappedListId = _selectedListId;
+    final tappedListSignature = _listItemsSignature(_currentItems());
     final updateFuture = _chartWeightUpdateFuture
         .catchError((Object _) {})
-        .then<void>((_) => _increaseListItemWeight(listId: tappedListId, itemId: tappedItemId));
+        .then<void>(
+          (_) => _increaseListItemWeight(
+            listId: tappedListId,
+            itemId: tappedItemId,
+            expectedListSignature: tappedListSignature,
+          ),
+        );
     _chartWeightUpdateFuture = updateFuture;
     await updateFuture;
   }
