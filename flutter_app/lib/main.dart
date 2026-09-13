@@ -1941,7 +1941,20 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                             if (chartBox == null) {
                                               return;
                                             }
-                                            _onChartPointerDown(event, sortedItems, chartBox.size);
+                                            _onChartPointerDown(
+                                              event,
+                                              sortedItems,
+                                              chartBox.size,
+                                            ).catchError((Object error, StackTrace stackTrace) {
+                                              _addLog('Chart pointer handling error: $error');
+                                              _addLog('Stack trace: $stackTrace');
+                                              if (!mounted) {
+                                                return;
+                                              }
+                                              setState(() {
+                                                _error = 'Ошибка изменения веса: $error';
+                                              });
+                                            });
                                           },
                                           child: CustomPaint(
                                             painter: _TaskDistributionChart(items: sortedItems),
