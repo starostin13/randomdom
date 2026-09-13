@@ -1508,6 +1508,9 @@ class _RandomDomAppState extends State<RandomDomApp> {
     if (_listViewMode != expectedViewMode) {
       return;
     }
+    if (_selectedListId != listId) {
+      return;
+    }
     final currentSortedItems = _chartSortedItems(list.items);
     if (_chartItemsSignature(currentSortedItems) != expectedChartSignature) {
       return;
