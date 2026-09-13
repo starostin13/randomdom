@@ -142,15 +142,14 @@ void main() {
   });
 
   testWidgets('Left click on chart segment increases task weight', (WidgetTester tester) async {
-    final configFile = File('${Directory.systemTemp.path}${Platform.pathSeparator}config.json');
-    final originalConfig = await configFile.exists() ? await configFile.readAsString() : null;
+    final originalCwd = Directory.current.path;
+    final tempDir = await Directory.systemTemp.createTemp('randomdom_chart_click_test_');
+    Directory.current = tempDir.path;
+    final configFile = File('${tempDir.path}${Platform.pathSeparator}config.json');
     addTearDown(() async {
-      if (originalConfig == null) {
-        if (await configFile.exists()) {
-          await configFile.delete();
-        }
-      } else {
-        await configFile.writeAsString(originalConfig);
+      Directory.current = originalCwd;
+      if (await tempDir.exists()) {
+        await tempDir.delete(recursive: true);
       }
     });
 

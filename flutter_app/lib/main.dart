@@ -1505,17 +1505,28 @@ class _RandomDomAppState extends State<RandomDomApp> {
       lists: {...config.lists, _selectedListId: list.copyWith(items: updatedItems)},
     );
 
-    await _persistConfig(updatedConfig);
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _config = updatedConfig;
-      if (_lastResult?.sourceListId == _selectedListId &&
-          _lastResult?.item.id == updatedItem.id) {
-        _lastResult = _lastResult!.copyWith(item: updatedItem);
+    try {
+      await _persistConfig(updatedConfig);
+      if (!mounted) {
+        return;
       }
-    });
+      setState(() {
+        _config = updatedConfig;
+        if (_lastResult?.sourceListId == _selectedListId &&
+            _lastResult?.item.id == updatedItem.id) {
+          _lastResult = _lastResult!.copyWith(item: updatedItem);
+        }
+      });
+    } catch (error, stackTrace) {
+      _addLog('Chart weight persist error: $error');
+      _addLog('Stack trace: $stackTrace');
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _error = 'Ошибка сохранения конфигурации: $error';
+      });
+    }
   }
 
   Future<void> _onChartPointerDown(
@@ -1555,19 +1566,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
     List<_IndexedTaskItem> sortedItems,
     Size chartSize,
   ) {
-    final updateFuture = _onChartPointerDown(event, sortedItems, chartSize);
-    unawaited(
-      updateFuture.catchError((Object error, StackTrace stackTrace) {
-        _addLog('Chart pointer handling error: $error');
-        _addLog('Stack trace: $stackTrace');
-        if (!mounted) {
-          return;
-        }
-        setState(() {
-          _error = 'Ошибка изменения веса: $error';
-        });
-      }),
-    );
+    unawaited(_onChartPointerDown(event, sortedItems, chartSize));
   }
 
   @override
