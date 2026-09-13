@@ -1563,9 +1563,9 @@ class _RandomDomAppState extends State<RandomDomApp> {
     Offset localPosition,
     List<RandomDomItem> sortedItems,
     Size chartSize,
-  ) async {
+  ) {
     if ((buttons & kPrimaryButton) == 0) {
-      return;
+      return Future<void>.value();
     }
 
     final tappedChartIndex = _TaskDistributionChart.itemIndexAtPosition(
@@ -1574,7 +1574,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
       size: chartSize,
     );
     if (tappedChartIndex == null) {
-      return;
+      return Future<void>.value();
     }
     final tappedItemId = sortedItems[tappedChartIndex].id;
     final tappedListId = _selectedListId;
@@ -1591,7 +1591,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
           ),
         );
     _chartWeightUpdateFuture = updateFuture;
-    await updateFuture;
+    return updateFuture;
   }
 
   void _handleChartPointerDown(
