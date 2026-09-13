@@ -1476,12 +1476,15 @@ class _RandomDomAppState extends State<RandomDomApp> {
     return currentList?.items ?? const <RandomDomItem>[];
   }
 
-  Future<void> _increaseSelectedListItemWeight(String itemId) async {
+  Future<void> _increaseListItemWeight({
+    required String listId,
+    required String itemId,
+  }) async {
     final config = _config;
     if (config == null) {
       return;
     }
-    final list = config.lists[_selectedListId];
+    final list = config.lists[listId];
     if (list == null) {
       return;
     }
@@ -1501,7 +1504,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
 
     final updatedConfig = config.copyWith(
       schemaVersion: 2,
-      lists: {...config.lists, _selectedListId: list.copyWith(items: updatedItems)},
+      lists: {...config.lists, listId: list.copyWith(items: updatedItems)},
     );
 
     try {
@@ -1511,7 +1514,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
       }
       setState(() {
         _config = updatedConfig;
-        if (_lastResult?.sourceListId == _selectedListId &&
+        if (_lastResult?.sourceListId == listId &&
             _lastResult?.item.id == updatedItem.id) {
           _lastResult = _lastResult!.copyWith(item: updatedItem);
         }
@@ -1547,9 +1550,10 @@ class _RandomDomAppState extends State<RandomDomApp> {
       return;
     }
     final tappedItemId = sortedItems[tappedChartIndex].item.id;
+    final tappedListId = _selectedListId;
     final updateFuture = _chartWeightUpdateFuture
         .catchError((Object _) {})
-        .then<void>((_) => _increaseSelectedListItemWeight(tappedItemId));
+        .then<void>((_) => _increaseListItemWeight(listId: tappedListId, itemId: tappedItemId));
     _chartWeightUpdateFuture = updateFuture;
     await updateFuture;
   }
