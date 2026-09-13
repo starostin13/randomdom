@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
@@ -2002,11 +2003,14 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                         width: 260,
                                         height: 260,
                                         child: LayoutBuilder(
-                                          builder: (context, constraints) => GestureDetector(
+                                          builder: (context, constraints) => Listener(
                                             behavior: HitTestBehavior.opaque,
-                                            onTapDown: (details) {
+                                            onPointerDown: (event) {
+                                              if ((event.buttons & kPrimaryButton) == 0) {
+                                                return;
+                                              }
                                               _handleChartPointerDown(
-                                                details.localPosition,
+                                                event.localPosition,
                                                 sortedItems,
                                                 constraints.biggest,
                                               );
