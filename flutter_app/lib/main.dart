@@ -232,6 +232,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
     'task_distribution_chart',
   );
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  final GlobalKey _taskDistributionChartListenerKey = GlobalKey();
   RandomDomConfig? _config;
   String? _configFilePath;
   List<String> _searchedConfigPaths = const [];
@@ -1975,27 +1976,28 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                   child: Column(
                                     children: [
                                       const SizedBox(height: 8),
-                                      Builder(
-                                        builder: (chartContext) => Listener(
-                                          behavior: HitTestBehavior.opaque,
-                                          onPointerDown: (event) {
-                                            final chartBox = chartContext.findRenderObject() as RenderBox?;
-                                            if (chartBox == null) {
-                                              return;
-                                            }
-                                            final localPosition = chartBox.globalToLocal(event.position);
-                                            _handleChartPointerDown(
-                                              event.buttons,
-                                              localPosition,
-                                              sortedItems,
-                                              chartBox.size,
-                                            );
-                                          },
-                                          child: CustomPaint(
-                                            key: _taskDistributionChartKey,
-                                            painter: _TaskDistributionChart(items: sortedItems),
-                                            child: const SizedBox(width: 260, height: 260),
-                                          ),
+                                      Listener(
+                                        key: _taskDistributionChartListenerKey,
+                                        behavior: HitTestBehavior.opaque,
+                                        onPointerDown: (event) {
+                                          final chartBox = _taskDistributionChartListenerKey
+                                              .currentContext
+                                              ?.findRenderObject() as RenderBox?;
+                                          if (chartBox == null) {
+                                            return;
+                                          }
+                                          final localPosition = chartBox.globalToLocal(event.position);
+                                          _handleChartPointerDown(
+                                            event.buttons,
+                                            localPosition,
+                                            sortedItems,
+                                            chartBox.size,
+                                          );
+                                        },
+                                        child: CustomPaint(
+                                          key: _taskDistributionChartKey,
+                                          painter: _TaskDistributionChart(items: sortedItems),
+                                          child: const SizedBox(width: 260, height: 260),
                                         ),
                                       ),
                                       const SizedBox(height: 16),
