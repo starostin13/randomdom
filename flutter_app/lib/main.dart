@@ -228,6 +228,9 @@ class _TaskDistributionChart extends CustomPainter {
 
 class _RandomDomAppState extends State<RandomDomApp> {
   static const MethodChannel _androidAppsChannel = MethodChannel('randomdom/android_apps');
+  static const ValueKey<String> _taskDistributionChartKey = ValueKey<String>(
+    'task_distribution_chart',
+  );
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   RandomDomConfig? _config;
   String? _configFilePath;
@@ -1989,6 +1992,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                             );
                                           },
                                           child: CustomPaint(
+                                            key: _taskDistributionChartKey,
                                             painter: _TaskDistributionChart(items: sortedItems),
                                             child: const SizedBox(width: 260, height: 260),
                                           ),

@@ -191,7 +191,7 @@ void main() {
 
     expect(find.text('Проверить почту (2.00)'), findsOneWidget);
 
-    final chartCenter = tester.getCenter(find.byType(CustomPaint).first);
+    final chartCenter = tester.getCenter(find.byKey(const ValueKey('task_distribution_chart')));
     final secondaryClick = await tester.createGesture(
       kind: PointerDeviceKind.mouse,
       buttons: kSecondaryMouseButton,
