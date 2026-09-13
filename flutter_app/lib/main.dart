@@ -225,13 +225,13 @@ class _TaskDistributionChart extends CustomPainter {
     for (var index = 0; index < items.length; index++) {
       final item = items[index];
       final sweepAngle = (item.weight / totalWeight) * (2 * pi);
-      if (normalizedAngle <= cumulativeAngle + sweepAngle) {
+      if (normalizedAngle < cumulativeAngle + sweepAngle) {
         return index;
       }
       cumulativeAngle += sweepAngle;
     }
 
-    return null;
+    return items.isEmpty ? null : items.length - 1;
   }
 }
 
