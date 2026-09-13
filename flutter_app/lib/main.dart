@@ -1465,7 +1465,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
     return currentList?.items ?? const <RandomDomItem>[];
   }
 
-  Future<void> _increaseSelectedListItemWeight(String itemId) async {
+  Future<void> _increaseSelectedListItemWeight(RandomDomItem tappedItem) async {
     final config = _config;
     if (config == null) {
       return;
@@ -1474,7 +1474,10 @@ class _RandomDomAppState extends State<RandomDomApp> {
     if (list == null) {
       return;
     }
-    final index = list.items.indexWhere((item) => item.id == itemId);
+    var index = list.items.indexWhere((item) => identical(item, tappedItem));
+    if (index < 0) {
+      index = list.items.indexWhere((item) => item.id == tappedItem.id);
+    }
     if (index < 0) {
       return;
     }
@@ -1492,7 +1495,8 @@ class _RandomDomAppState extends State<RandomDomApp> {
 
     setState(() {
       _config = updatedConfig;
-      if (_lastResult?.sourceListId == _selectedListId && _lastResult?.item.id == itemId) {
+      if (_lastResult?.sourceListId == _selectedListId &&
+          _lastResult?.item.id == updatedItem.id) {
         _lastResult = _lastResult!.copyWith(item: updatedItem);
       }
     });
@@ -1516,7 +1520,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
     if (tappedItem == null) {
       return;
     }
-    await _increaseSelectedListItemWeight(tappedItem.id);
+    await _increaseSelectedListItemWeight(tappedItem);
   }
 
   @override
