@@ -108,7 +108,7 @@ class TaskBalanceUtils {
 }
 
 class _TaskDistributionChart extends CustomPainter {
-  static const double outerRadius = 100.0;
+  static const double _maxOuterRadius = 100.0;
 
   const _TaskDistributionChart({
     required this.items,
@@ -124,6 +124,7 @@ class _TaskDistributionChart extends CustomPainter {
     }
 
     final center = Offset(size.width / 2, size.height / 2);
+    final outerRadius = _outerRadiusForSize(size);
     final chartRect = Rect.fromCircle(center: center, radius: outerRadius);
     var startAngle = -pi / 2;
 
@@ -183,6 +184,10 @@ class _TaskDistributionChart extends CustomPainter {
     return color.toColor();
   }
 
+  static double _outerRadiusForSize(Size size) {
+    return min(_maxOuterRadius, size.shortestSide / 2);
+  }
+
   static RandomDomItem? itemAtPosition({
     required List<RandomDomItem> items,
     required Offset localPosition,
@@ -194,6 +199,7 @@ class _TaskDistributionChart extends CustomPainter {
     }
 
     final center = Offset(size.width / 2, size.height / 2);
+    final outerRadius = _outerRadiusForSize(size);
     final distanceFromCenter = (localPosition - center).distance;
     if (distanceFromCenter > outerRadius) {
       return null;
