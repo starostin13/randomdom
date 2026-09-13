@@ -1500,6 +1500,10 @@ class _RandomDomAppState extends State<RandomDomApp> {
       lists: {...config.lists, _selectedListId: list.copyWith(items: updatedItems)},
     );
 
+    await _persistConfig(updatedConfig);
+    if (!mounted) {
+      return;
+    }
     setState(() {
       _config = updatedConfig;
       if (_lastResult?.sourceListId == _selectedListId &&
@@ -1507,7 +1511,6 @@ class _RandomDomAppState extends State<RandomDomApp> {
         _lastResult = _lastResult!.copyWith(item: updatedItem);
       }
     });
-    await _persistConfig(updatedConfig);
   }
 
   Future<void> _onChartPointerDown(
