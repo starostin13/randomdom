@@ -1548,26 +1548,26 @@ class _RandomDomAppState extends State<RandomDomApp> {
         _chartWeightUpdateFuture = null;
       }
     }
+  }
 
-    void _handleChartPointerDown(
-      PointerDownEvent event,
-      List<_IndexedTaskItem> sortedItems,
-      Size chartSize,
-    ) {
-      final updateFuture = _onChartPointerDown(event, sortedItems, chartSize);
-      unawaited(
-        updateFuture.catchError((Object error, StackTrace stackTrace) {
-          _addLog('Chart pointer handling error: $error');
-          _addLog('Stack trace: $stackTrace');
-          if (!mounted) {
-            return;
-          }
-          setState(() {
-            _error = 'Ошибка изменения веса: $error';
-          });
-        }),
-      );
-    }
+  void _handleChartPointerDown(
+    PointerDownEvent event,
+    List<_IndexedTaskItem> sortedItems,
+    Size chartSize,
+  ) {
+    final updateFuture = _onChartPointerDown(event, sortedItems, chartSize);
+    unawaited(
+      updateFuture.catchError((Object error, StackTrace stackTrace) {
+        _addLog('Chart pointer handling error: $error');
+        _addLog('Stack trace: $stackTrace');
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _error = 'Ошибка изменения веса: $error';
+        });
+      }),
+    );
   }
 
   @override
