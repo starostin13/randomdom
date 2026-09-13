@@ -4,7 +4,6 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -232,7 +231,6 @@ class _RandomDomAppState extends State<RandomDomApp> {
     'task_distribution_chart',
   );
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
-  final GlobalKey _taskDistributionChartListenerKey = GlobalKey();
   RandomDomConfig? _config;
   String? _configFilePath;
   List<String> _searchedConfigPaths = const [];
@@ -1559,15 +1557,10 @@ class _RandomDomAppState extends State<RandomDomApp> {
   }
 
   Future<void> _onChartPointerDown(
-    int buttons,
     Offset localPosition,
     List<RandomDomItem> sortedItems,
     Size chartSize,
   ) {
-    if ((buttons & kPrimaryButton) == 0) {
-      return Future<void>.value();
-    }
-
     final tappedChartIndex = _TaskDistributionChart.itemIndexAtPosition(
       items: sortedItems,
       localPosition: localPosition,
@@ -1595,12 +1588,11 @@ class _RandomDomAppState extends State<RandomDomApp> {
   }
 
   void _handleChartPointerDown(
-    int buttons,
     Offset localPosition,
     List<RandomDomItem> sortedItems,
     Size chartSize,
   ) {
-    unawaited(_onChartPointerDown(buttons, localPosition, sortedItems, chartSize));
+    unawaited(_onChartPointerDown(localPosition, sortedItems, chartSize));
   }
 
   @override
@@ -2006,28 +1998,25 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                   child: Column(
                                     children: [
                                       const SizedBox(height: 8),
-                                      Listener(
-                                        key: _taskDistributionChartListenerKey,
-                                        behavior: HitTestBehavior.opaque,
-                                        onPointerDown: (event) {
-                                          final chartBox = _taskDistributionChartListenerKey
-                                              .currentContext
-                                              ?.findRenderObject() as RenderBox?;
-                                          if (chartBox == null) {
-                                            return;
-                                          }
-                                          final localPosition = chartBox.globalToLocal(event.position);
-                                          _handleChartPointerDown(
-                                            event.buttons,
-                                            localPosition,
-                                            sortedItems,
-                                            chartBox.size,
-                                          );
-                                        },
-                                        child: CustomPaint(
-                                          key: _taskDistributionChartKey,
-                                          painter: _TaskDistributionChart(items: sortedItems),
-                                          child: const SizedBox(width: 260, height: 260),
+                                      SizedBox(
+                                        width: 260,
+                                        height: 260,
+                                        child: LayoutBuilder(
+                                          builder: (context, constraints) => GestureDetector(
+                                            behavior: HitTestBehavior.opaque,
+                                            onTapDown: (details) {
+                                              _handleChartPointerDown(
+                                                details.localPosition,
+                                                sortedItems,
+                                                constraints.biggest,
+                                              );
+                                            },
+                                            child: CustomPaint(
+                                              key: _taskDistributionChartKey,
+                                              painter: _TaskDistributionChart(items: sortedItems),
+                                              child: const SizedBox.expand(),
+                                            ),
+                                          ),
                                         ),
                                       ),
                                       const SizedBox(height: 16),
