@@ -107,6 +107,8 @@ class TaskBalanceUtils {
 }
 
 class _TaskDistributionChart extends CustomPainter {
+  static const double outerRadius = 100.0;
+
   const _TaskDistributionChart({
     required this.items,
   });
@@ -121,7 +123,6 @@ class _TaskDistributionChart extends CustomPainter {
     }
 
     final center = Offset(size.width / 2, size.height / 2);
-    const outerRadius = 100.0;
     final chartRect = Rect.fromCircle(center: center, radius: outerRadius);
     var startAngle = -pi / 2;
 
@@ -179,6 +180,40 @@ class _TaskDistributionChart extends CustomPainter {
         : 210.0 + (index * 11.0);
     final color = HSLColor.fromAHSL(1.0, hue % 360.0, 0.75, 0.6);
     return color.toColor();
+  }
+
+  static RandomDomItem? itemAtPosition({
+    required List<RandomDomItem> items,
+    required Offset localPosition,
+    required Size size,
+  }) {
+    final totalWeight = items.fold<double>(0, (sum, item) => sum + item.weight);
+    if (totalWeight <= 0) {
+      return null;
+    }
+
+    final center = Offset(size.width / 2, size.height / 2);
+    final distanceFromCenter = (localPosition - center).distance;
+    if (distanceFromCenter > outerRadius) {
+      return null;
+    }
+
+    final pointAngle = atan2(localPosition.dy - center.dy, localPosition.dx - center.dx);
+    var normalizedAngle = pointAngle + (pi / 2);
+    if (normalizedAngle < 0) {
+      normalizedAngle += 2 * pi;
+    }
+
+    var cumulativeAngle = 0.0;
+    for (final item in items) {
+      final sweepAngle = (item.weight / totalWeight) * (2 * pi);
+      if (normalizedAngle <= cumulativeAngle + sweepAngle) {
+        return item;
+      }
+      cumulativeAngle += sweepAngle;
+    }
+
+    return null;
   }
 }
 
@@ -1423,6 +1458,60 @@ class _RandomDomAppState extends State<RandomDomApp> {
     return currentList?.items ?? const <RandomDomItem>[];
   }
 
+  Future<void> _increaseSelectedListItemWeight(String itemId) async {
+    final config = _config;
+    if (config == null) {
+      return;
+    }
+    final list = config.lists[_selectedListId];
+    if (list == null) {
+      return;
+    }
+    final index = list.items.indexWhere((item) => item.id == itemId);
+    if (index < 0) {
+      return;
+    }
+
+    final updatedItems = [...list.items];
+    final updatedItem = updatedItems[index].copyWith(
+      weight: (updatedItems[index].weight + 1).clamp(0.1, 9999.0),
+    );
+    updatedItems[index] = updatedItem;
+
+    final updatedConfig = config.copyWith(
+      schemaVersion: 2,
+      lists: {...config.lists, _selectedListId: list.copyWith(items: updatedItems)},
+    );
+
+    setState(() {
+      _config = updatedConfig;
+      if (_lastResult?.sourceListId == _selectedListId && _lastResult?.item.id == itemId) {
+        _lastResult = _lastResult!.copyWith(item: updatedItem);
+      }
+    });
+    await _persistConfig(updatedConfig);
+  }
+
+  Future<void> _onChartPointerDown(
+    PointerDownEvent event,
+    List<RandomDomItem> sortedItems,
+  ) async {
+    const primaryButton = 1;
+    if ((event.buttons & primaryButton) == 0) {
+      return;
+    }
+
+    final tappedItem = _TaskDistributionChart.itemAtPosition(
+      items: sortedItems,
+      localPosition: event.localPosition,
+      size: const Size(260, 260),
+    );
+    if (tappedItem == null) {
+      return;
+    }
+    await _increaseSelectedListItemWeight(tappedItem.id);
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -1834,9 +1923,12 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                   child: Column(
                                     children: [
                                       const SizedBox(height: 8),
-                                      CustomPaint(
-                                        painter: _TaskDistributionChart(items: sortedItems),
-                                        child: const SizedBox(width: 260, height: 260),
+                                      Listener(
+                                        onPointerDown: (event) => _onChartPointerDown(event, sortedItems),
+                                        child: CustomPaint(
+                                          painter: _TaskDistributionChart(items: sortedItems),
+                                          child: const SizedBox(width: 260, height: 260),
+                                        ),
                                       ),
                                       const SizedBox(height: 16),
                                       Wrap(
