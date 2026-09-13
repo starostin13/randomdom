@@ -1980,9 +1980,10 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                             if (chartBox == null) {
                                               return;
                                             }
+                                            final localPosition = chartBox.globalToLocal(event.position);
                                             _handleChartPointerDown(
                                               event.buttons,
-                                              event.localPosition,
+                                              localPosition,
                                               sortedItems,
                                               chartBox.size,
                                             );
