@@ -1472,14 +1472,29 @@ class _RandomDomAppState extends State<RandomDomApp> {
     return currentList?.items ?? const <RandomDomItem>[];
   }
 
-  String _listItemsSignature(List<RandomDomItem> items) {
-    return items.map((item) => item.id).join('|');
+  List<RandomDomItem> _chartSortedItems(List<RandomDomItem> items) {
+    final sortedItems = List<RandomDomItem>.from(items)
+      ..sort((a, b) {
+        if (a.category == ItemCategory.serious && b.category == ItemCategory.fun) {
+          return -1;
+        } else if (a.category == ItemCategory.fun && b.category == ItemCategory.serious) {
+          return 1;
+        }
+        return 0;
+      });
+    return sortedItems;
+  }
+
+  String _chartItemsSignature(List<RandomDomItem> sortedItems) {
+    return sortedItems
+        .map((item) => '${item.id}:${item.category.name}:${item.weight.toStringAsFixed(6)}')
+        .join('|');
   }
 
   Future<void> _increaseListItemWeight({
     required String listId,
     required String itemId,
-    required String expectedListSignature,
+    required String expectedChartSignature,
   }) async {
     final config = _config;
     if (config == null) {
@@ -1489,7 +1504,8 @@ class _RandomDomAppState extends State<RandomDomApp> {
     if (list == null) {
       return;
     }
-    if (_listItemsSignature(list.items) != expectedListSignature) {
+    final currentSortedItems = _chartSortedItems(list.items);
+    if (_chartItemsSignature(currentSortedItems) != expectedChartSignature) {
       return;
     }
     final itemIndex = list.items.indexWhere((item) => item.id == itemId);
@@ -1555,14 +1571,14 @@ class _RandomDomAppState extends State<RandomDomApp> {
     }
     final tappedItemId = sortedItems[tappedChartIndex].id;
     final tappedListId = _selectedListId;
-    final tappedListSignature = _listItemsSignature(_currentItems());
+    final tappedChartSignature = _chartItemsSignature(sortedItems);
     final updateFuture = _chartWeightUpdateFuture
         .catchError((Object _) {})
         .then<void>(
           (_) => _increaseListItemWeight(
             listId: tappedListId,
             itemId: tappedItemId,
-            expectedListSignature: tappedListSignature,
+            expectedChartSignature: tappedChartSignature,
           ),
         );
     _chartWeightUpdateFuture = updateFuture;
@@ -1972,17 +1988,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
                               }
 
                               if (_listViewMode == _TodoListViewMode.chart) {
-                                final sortedItems = List<RandomDomItem>.from(items)
-                                  ..sort((a, b) {
-                                    if (a.category == ItemCategory.serious &&
-                                        b.category == ItemCategory.fun) {
-                                      return -1;
-                                    } else if (a.category == ItemCategory.fun &&
-                                        b.category == ItemCategory.serious) {
-                                      return 1;
-                                    }
-                                    return 0;
-                                  });
+                                final sortedItems = _chartSortedItems(items);
                                 return SingleChildScrollView(
                                   padding: EdgeInsets.only(
                                     right: listRightPadding,
