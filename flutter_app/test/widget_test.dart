@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:randomdom_flutter/domain/models.dart';
@@ -140,6 +141,75 @@ void main() {
         reason: 'Serious task should appear before fun task');
   });
 
+  testWidgets('Left click on chart segment increases task weight', (WidgetTester tester) async {
+    final originalCwd = Directory.current.path;
+    final tempDir = await Directory.systemTemp.createTemp('randomdom_chart_click_test_');
+    Directory.current = tempDir.path;
+    final configFile = File('${tempDir.path}${Platform.pathSeparator}config.json');
+    addTearDown(() async {
+      Directory.current = originalCwd;
+      if (await tempDir.exists()) {
+        await tempDir.delete(recursive: true);
+      }
+    });
+
+    await configFile.writeAsString(
+      jsonEncode(
+        RandomDomConfig(
+          schemaVersion: 2,
+          moodPolicy: MoodPolicy.defaultPolicy(),
+          lists: {
+            'main': RandomDomList(
+              name: 'Основные дела',
+              items: const [
+                RandomDomItem(
+                  id: 'item_1',
+                  type: ItemType.text,
+                  value: 'Проверить почту',
+                  weight: 2,
+                  category: ItemCategory.serious,
+                ),
+                RandomDomItem(
+                  id: 'item_2',
+                  type: ItemType.text,
+                  value: 'Отдохнуть',
+                  weight: 1,
+                  category: ItemCategory.fun,
+                ),
+              ],
+            ),
+          },
+        ).toJson(),
+      ),
+    );
+
+    await tester.pumpWidget(const RandomDomApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Круговая диаграмма'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Проверить почту (2.00)'), findsOneWidget);
+
+    final chartCenter = tester.getCenter(find.byKey(const ValueKey('task_distribution_chart')));
+    final secondaryClick = await tester.createGesture(
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    final chartPoint = chartCenter + const Offset(50, 0);
+    await secondaryClick.addPointer(location: chartPoint);
+    await secondaryClick.down(chartPoint);
+    await secondaryClick.up();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Проверить почту (2.00)'), findsOneWidget);
+
+    await tester.tapAt(chartCenter + const Offset(50, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Проверить почту (3.00)'), findsOneWidget);
+  });
+
   test('Task balance helper moves weight evenly between serious and fun tasks', () {
     final items = const [
       RandomDomItem(
@@ -187,4 +257,3 @@ void main() {
     expect(TaskBalanceUtils.itemBalance(balanced), closeTo(0.0, 1e-6));
   });
 }
-

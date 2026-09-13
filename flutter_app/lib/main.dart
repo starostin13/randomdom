@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
@@ -107,6 +109,8 @@ class TaskBalanceUtils {
 }
 
 class _TaskDistributionChart extends CustomPainter {
+  static const double _maxOuterRadius = 100.0;
+
   const _TaskDistributionChart({
     required this.items,
   });
@@ -121,7 +125,7 @@ class _TaskDistributionChart extends CustomPainter {
     }
 
     final center = Offset(size.width / 2, size.height / 2);
-    const outerRadius = 100.0;
+    final outerRadius = _outerRadiusForSize(size);
     final chartRect = Rect.fromCircle(center: center, radius: outerRadius);
     var startAngle = -pi / 2;
 
@@ -180,10 +184,53 @@ class _TaskDistributionChart extends CustomPainter {
     final color = HSLColor.fromAHSL(1.0, hue % 360.0, 0.75, 0.6);
     return color.toColor();
   }
+
+  static double _outerRadiusForSize(Size size) {
+    return min(_maxOuterRadius, size.shortestSide / 2);
+  }
+
+  static int? itemIndexAtPosition({
+    required List<RandomDomItem> items,
+    required Offset localPosition,
+    required Size size,
+  }) {
+    final totalWeight = items.fold<double>(0, (sum, item) => sum + item.weight);
+    if (totalWeight <= 0) {
+      return null;
+    }
+
+    final center = Offset(size.width / 2, size.height / 2);
+    final outerRadius = _outerRadiusForSize(size);
+    final distanceFromCenter = (localPosition - center).distance;
+    if (distanceFromCenter > outerRadius) {
+      return null;
+    }
+
+    final pointAngle = atan2(localPosition.dy - center.dy, localPosition.dx - center.dx);
+    var normalizedAngle = pointAngle + (pi / 2);
+    if (normalizedAngle < 0) {
+      normalizedAngle += 2 * pi;
+    }
+
+    var cumulativeAngle = 0.0;
+    for (var index = 0; index < items.length; index++) {
+      final item = items[index];
+      final sweepAngle = (item.weight / totalWeight) * (2 * pi);
+      if (normalizedAngle < cumulativeAngle + sweepAngle) {
+        return index;
+      }
+      cumulativeAngle += sweepAngle;
+    }
+
+    return items.isEmpty ? null : items.length - 1;
+  }
 }
 
 class _RandomDomAppState extends State<RandomDomApp> {
   static const MethodChannel _androidAppsChannel = MethodChannel('randomdom/android_apps');
+  static const ValueKey<String> _taskDistributionChartKey = ValueKey<String>(
+    'task_distribution_chart',
+  );
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   RandomDomConfig? _config;
   String? _configFilePath;
@@ -203,6 +250,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
   final TextEditingController _editingWeightController = TextEditingController();
   SelectionResult? _lastResult;
   bool _isSelecting = false;
+  Future<void> _chartWeightUpdateFuture = Future<void>.value();
   String? _rollingPreview;
   final Random _random = Random();
   final RandomDomExecutor _executor = RandomDomExecutor();
@@ -1423,6 +1471,131 @@ class _RandomDomAppState extends State<RandomDomApp> {
     return currentList?.items ?? const <RandomDomItem>[];
   }
 
+  List<RandomDomItem> _chartSortedItems(List<RandomDomItem> items) {
+    final sortedItems = List<RandomDomItem>.from(items)
+      ..sort((a, b) {
+        if (a.category == ItemCategory.serious && b.category == ItemCategory.fun) {
+          return -1;
+        } else if (a.category == ItemCategory.fun && b.category == ItemCategory.serious) {
+          return 1;
+        }
+        return 0;
+      });
+    return sortedItems;
+  }
+
+  String _chartItemsSignature(List<RandomDomItem> sortedItems) {
+    return sortedItems
+        .map((item) => '${item.id}:${item.category.name}:${item.weight.toStringAsFixed(6)}')
+        .join('|');
+  }
+
+  Future<void> _increaseListItemWeight({
+    required String listId,
+    required String itemId,
+    required String expectedChartSignature,
+    required _TodoListViewMode expectedViewMode,
+  }) async {
+    final config = _config;
+    if (config == null) {
+      return;
+    }
+    final list = config.lists[listId];
+    if (list == null) {
+      return;
+    }
+    if (_listViewMode != expectedViewMode) {
+      return;
+    }
+    if (_selectedListId != listId) {
+      return;
+    }
+    final currentSortedItems = _chartSortedItems(list.items);
+    if (_chartItemsSignature(currentSortedItems) != expectedChartSignature) {
+      return;
+    }
+    final itemIndex = list.items.indexWhere((item) => item.id == itemId);
+    if (itemIndex < 0) {
+      return;
+    }
+
+    final updatedItems = [...list.items];
+    final oldWeight = updatedItems[itemIndex].weight;
+    final updatedWeight = min(oldWeight + 1, 9999.0);
+    if (updatedWeight == oldWeight) {
+      return;
+    }
+    final updatedItem = updatedItems[itemIndex].copyWith(weight: updatedWeight);
+    updatedItems[itemIndex] = updatedItem;
+
+    final updatedConfig = config.copyWith(
+      schemaVersion: 2,
+      lists: {...config.lists, listId: list.copyWith(items: updatedItems)},
+    );
+
+    try {
+      await _persistConfig(updatedConfig);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _config = updatedConfig;
+        if (_lastResult?.sourceListId == listId &&
+            _lastResult?.item.id == updatedItem.id) {
+          _lastResult = _lastResult!.copyWith(item: updatedItem);
+        }
+      });
+    } catch (error, stackTrace) {
+      _addLog('Chart weight persist error: $error');
+      _addLog('Stack trace: $stackTrace');
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _error = 'Ошибка сохранения конфигурации: $error';
+      });
+    }
+  }
+
+  Future<void> _onChartPointerDown(
+    Offset localPosition,
+    List<RandomDomItem> sortedItems,
+    Size chartSize,
+  ) {
+    final tappedChartIndex = _TaskDistributionChart.itemIndexAtPosition(
+      items: sortedItems,
+      localPosition: localPosition,
+      size: chartSize,
+    );
+    if (tappedChartIndex == null) {
+      return Future<void>.value();
+    }
+    final tappedItemId = sortedItems[tappedChartIndex].id;
+    final tappedListId = _selectedListId;
+    final tappedViewMode = _listViewMode;
+    final tappedChartSignature = _chartItemsSignature(sortedItems);
+    final updateFuture = _chartWeightUpdateFuture
+        .catchError((Object _) {})
+        .then<void>(
+          (_) => _increaseListItemWeight(
+            listId: tappedListId,
+            itemId: tappedItemId,
+            expectedChartSignature: tappedChartSignature,
+            expectedViewMode: tappedViewMode,
+          ),
+        );
+    _chartWeightUpdateFuture = updateFuture;
+    return updateFuture;
+  }
+
+  void _handleChartPointerDown(
+    Offset localPosition,
+    List<RandomDomItem> sortedItems,
+    Size chartSize,
+  ) {
+    unawaited(_onChartPointerDown(localPosition, sortedItems, chartSize));
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -1817,15 +1990,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
                               }
 
                               if (_listViewMode == _TodoListViewMode.chart) {
-                                final sortedItems = List<RandomDomItem>.from(items)
-                                  ..sort((a, b) {
-                                    if (a.category == ItemCategory.serious && b.category == ItemCategory.fun) {
-                                      return -1;
-                                    } else if (a.category == ItemCategory.fun && b.category == ItemCategory.serious) {
-                                      return 1;
-                                    }
-                                    return 0;
-                                  });
+                                final sortedItems = _chartSortedItems(items);
                                 return SingleChildScrollView(
                                   padding: EdgeInsets.only(
                                     right: listRightPadding,
@@ -1834,9 +1999,29 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                   child: Column(
                                     children: [
                                       const SizedBox(height: 8),
-                                      CustomPaint(
-                                        painter: _TaskDistributionChart(items: sortedItems),
-                                        child: const SizedBox(width: 260, height: 260),
+                                      SizedBox(
+                                        width: 260,
+                                        height: 260,
+                                        child: LayoutBuilder(
+                                          builder: (context, constraints) => Listener(
+                                            behavior: HitTestBehavior.opaque,
+                                            onPointerDown: (event) {
+                                              if ((event.buttons & kPrimaryButton) == 0) {
+                                                return;
+                                              }
+                                              _handleChartPointerDown(
+                                                event.localPosition,
+                                                sortedItems,
+                                                constraints.biggest,
+                                              );
+                                            },
+                                            child: CustomPaint(
+                                              key: _taskDistributionChartKey,
+                                              painter: _TaskDistributionChart(items: sortedItems),
+                                              child: const SizedBox.expand(),
+                                            ),
+                                          ),
+                                        ),
                                       ),
                                       const SizedBox(height: 16),
                                       Wrap(
