@@ -1474,10 +1474,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
     if (list == null) {
       return;
     }
-    var index = list.items.indexWhere((item) => identical(item, tappedItem));
-    if (index < 0) {
-      index = list.items.indexWhere((item) => item.id == tappedItem.id);
-    }
+    final index = list.items.indexWhere((item) => identical(item, tappedItem));
     if (index < 0) {
       return;
     }
