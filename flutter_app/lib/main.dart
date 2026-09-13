@@ -27,6 +27,16 @@ void main() {
 
 enum _TodoListViewMode { list, chart }
 
+class _IndexedTaskItem {
+  const _IndexedTaskItem({
+    required this.originalIndex,
+    required this.item,
+  });
+
+  final int originalIndex;
+  final RandomDomItem item;
+}
+
 class RandomDomApp extends StatefulWidget {
   const RandomDomApp({super.key});
 
@@ -188,7 +198,7 @@ class _TaskDistributionChart extends CustomPainter {
     return min(_maxOuterRadius, size.shortestSide / 2);
   }
 
-  static RandomDomItem? itemAtPosition({
+  static int? itemIndexAtPosition({
     required List<RandomDomItem> items,
     required Offset localPosition,
     required Size size,
@@ -212,10 +222,11 @@ class _TaskDistributionChart extends CustomPainter {
     }
 
     var cumulativeAngle = 0.0;
-    for (final item in items) {
+    for (var index = 0; index < items.length; index++) {
+      final item = items[index];
       final sweepAngle = (item.weight / totalWeight) * (2 * pi);
       if (normalizedAngle <= cumulativeAngle + sweepAngle) {
-        return item;
+        return index;
       }
       cumulativeAngle += sweepAngle;
     }
@@ -1465,7 +1476,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
     return currentList?.items ?? const <RandomDomItem>[];
   }
 
-  Future<void> _increaseSelectedListItemWeight(RandomDomItem tappedItem) async {
+  Future<void> _increaseSelectedListItemWeight(int itemIndex) async {
     final config = _config;
     if (config == null) {
       return;
@@ -1474,16 +1485,15 @@ class _RandomDomAppState extends State<RandomDomApp> {
     if (list == null) {
       return;
     }
-    final index = list.items.indexWhere((item) => identical(item, tappedItem));
-    if (index < 0) {
+    if (itemIndex < 0 || itemIndex >= list.items.length) {
       return;
     }
 
     final updatedItems = [...list.items];
-    final updatedItem = updatedItems[index].copyWith(
-      weight: (updatedItems[index].weight + 1).clamp(0.1, 9999.0),
+    final updatedItem = updatedItems[itemIndex].copyWith(
+      weight: (updatedItems[itemIndex].weight + 1).clamp(0.1, 9999.0),
     );
-    updatedItems[index] = updatedItem;
+    updatedItems[itemIndex] = updatedItem;
 
     final updatedConfig = config.copyWith(
       schemaVersion: 2,
@@ -1502,22 +1512,23 @@ class _RandomDomAppState extends State<RandomDomApp> {
 
   Future<void> _onChartPointerDown(
     PointerDownEvent event,
-    List<RandomDomItem> sortedItems,
+    List<_IndexedTaskItem> sortedItems,
     Size chartSize,
   ) async {
     if ((event.buttons & kPrimaryButton) == 0) {
       return;
     }
 
-    final tappedItem = _TaskDistributionChart.itemAtPosition(
-      items: sortedItems,
+    final chartItems = sortedItems.map((entry) => entry.item).toList(growable: false);
+    final tappedChartIndex = _TaskDistributionChart.itemIndexAtPosition(
+      items: chartItems,
       localPosition: event.localPosition,
       size: chartSize,
     );
-    if (tappedItem == null) {
+    if (tappedChartIndex == null) {
       return;
     }
-    await _increaseSelectedListItemWeight(tappedItem);
+    await _increaseSelectedListItemWeight(sortedItems[tappedChartIndex].originalIndex);
   }
 
   @override
@@ -1914,11 +1925,18 @@ class _RandomDomAppState extends State<RandomDomApp> {
                               }
 
                               if (_listViewMode == _TodoListViewMode.chart) {
-                                final sortedItems = List<RandomDomItem>.from(items)
+                                final sortedItems = items.asMap().entries.map((entry) {
+                                  return _IndexedTaskItem(
+                                    originalIndex: entry.key,
+                                    item: entry.value,
+                                  );
+                                }).toList()
                                   ..sort((a, b) {
-                                    if (a.category == ItemCategory.serious && b.category == ItemCategory.fun) {
+                                    if (a.item.category == ItemCategory.serious &&
+                                        b.item.category == ItemCategory.fun) {
                                       return -1;
-                                    } else if (a.category == ItemCategory.fun && b.category == ItemCategory.serious) {
+                                    } else if (a.item.category == ItemCategory.fun &&
+                                        b.item.category == ItemCategory.serious) {
                                       return 1;
                                     }
                                     return 0;
@@ -1933,6 +1951,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                       const SizedBox(height: 8),
                                       Builder(
                                         builder: (chartContext) => Listener(
+                                          behavior: HitTestBehavior.opaque,
                                           onPointerDown: (event) {
                                             final chartBox = chartContext.findRenderObject() as RenderBox?;
                                             if (chartBox == null) {
@@ -1954,7 +1973,11 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                             });
                                           },
                                           child: CustomPaint(
-                                            painter: _TaskDistributionChart(items: sortedItems),
+                                            painter: _TaskDistributionChart(
+                                              items: sortedItems.map((entry) => entry.item).toList(
+                                                    growable: false,
+                                                  ),
+                                            ),
                                             child: const SizedBox(width: 260, height: 260),
                                           ),
                                         ),
@@ -1965,7 +1988,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                         runSpacing: 8,
                                         children: sortedItems.asMap().entries.map((entry) {
                                           final index = entry.key;
-                                          final item = entry.value;
+                                          final item = entry.value.item;
                                           return Chip(
                                             avatar: CircleAvatar(
                                               backgroundColor: _TaskDistributionChart._colorForItem(item, index),
