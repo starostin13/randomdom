@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -1491,9 +1492,12 @@ class _RandomDomAppState extends State<RandomDomApp> {
     }
 
     final updatedItems = [...list.items];
-    final updatedItem = updatedItems[itemIndex].copyWith(
-      weight: (updatedItems[itemIndex].weight + 1).clamp(0.1, 9999.0),
-    );
+    final oldWeight = updatedItems[itemIndex].weight;
+    final updatedWeight = (oldWeight + 1).clamp(0.1, 9999.0);
+    if (updatedWeight == oldWeight) {
+      return;
+    }
+    final updatedItem = updatedItems[itemIndex].copyWith(weight: updatedWeight);
     updatedItems[itemIndex] = updatedItem;
 
     final updatedConfig = config.copyWith(
@@ -1543,6 +1547,26 @@ class _RandomDomAppState extends State<RandomDomApp> {
       if (identical(_chartWeightUpdateFuture, updateFuture)) {
         _chartWeightUpdateFuture = null;
       }
+    }
+
+    void _handleChartPointerDown(
+      PointerDownEvent event,
+      List<_IndexedTaskItem> sortedItems,
+      Size chartSize,
+    ) {
+      final updateFuture = _onChartPointerDown(event, sortedItems, chartSize);
+      unawaited(
+        updateFuture.catchError((Object error, StackTrace stackTrace) {
+          _addLog('Chart pointer handling error: $error');
+          _addLog('Stack trace: $stackTrace');
+          if (!mounted) {
+            return;
+          }
+          setState(() {
+            _error = 'Ошибка изменения веса: $error';
+          });
+        }),
+      );
     }
   }
 
@@ -1967,27 +1991,12 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                       Builder(
                                         builder: (chartContext) => Listener(
                                           behavior: HitTestBehavior.opaque,
-                                          onPointerDown: (event) async {
+                                          onPointerDown: (event) {
                                             final chartBox = chartContext.findRenderObject() as RenderBox?;
                                             if (chartBox == null) {
                                               return;
                                             }
-                                            try {
-                                              await _onChartPointerDown(
-                                                event,
-                                                sortedItems,
-                                                chartBox.size,
-                                              );
-                                            } catch (error, stackTrace) {
-                                              _addLog('Chart pointer handling error: $error');
-                                              _addLog('Stack trace: $stackTrace');
-                                              if (!mounted) {
-                                                return;
-                                              }
-                                              setState(() {
-                                                _error = 'Ошибка изменения веса: $error';
-                                              });
-                                            }
+                                            _handleChartPointerDown(event, sortedItems, chartBox.size);
                                           },
                                           child: CustomPaint(
                                             painter: _TaskDistributionChart(
