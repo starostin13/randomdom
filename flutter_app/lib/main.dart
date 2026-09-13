@@ -30,11 +30,9 @@ enum _TodoListViewMode { list, chart }
 
 class _IndexedTaskItem {
   const _IndexedTaskItem({
-    required this.originalIndex,
     required this.item,
   });
 
-  final int originalIndex;
   final RandomDomItem item;
 }
 
@@ -1478,7 +1476,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
     return currentList?.items ?? const <RandomDomItem>[];
   }
 
-  Future<void> _increaseSelectedListItemWeight(int itemIndex) async {
+  Future<void> _increaseSelectedListItemWeight(String itemId) async {
     final config = _config;
     if (config == null) {
       return;
@@ -1487,13 +1485,14 @@ class _RandomDomAppState extends State<RandomDomApp> {
     if (list == null) {
       return;
     }
-    if (itemIndex < 0 || itemIndex >= list.items.length) {
+    final itemIndex = list.items.indexWhere((item) => item.id == itemId);
+    if (itemIndex < 0) {
       return;
     }
 
     final updatedItems = [...list.items];
     final oldWeight = updatedItems[itemIndex].weight;
-    final updatedWeight = (oldWeight + 1).clamp(0.1, 9999.0);
+    final updatedWeight = min(oldWeight + 1, 9999.0);
     if (updatedWeight == oldWeight) {
       return;
     }
@@ -1547,9 +1546,10 @@ class _RandomDomAppState extends State<RandomDomApp> {
     if (tappedChartIndex == null) {
       return;
     }
+    final tappedItemId = sortedItems[tappedChartIndex].item.id;
     final updateFuture = _chartWeightUpdateFuture
         .catchError((Object _) {})
-        .then<void>((_) => _increaseSelectedListItemWeight(sortedItems[tappedChartIndex].originalIndex));
+        .then<void>((_) => _increaseSelectedListItemWeight(tappedItemId));
     _chartWeightUpdateFuture = updateFuture;
     await updateFuture;
   }
@@ -1958,7 +1958,6 @@ class _RandomDomAppState extends State<RandomDomApp> {
                               if (_listViewMode == _TodoListViewMode.chart) {
                                 final sortedItems = items.asMap().entries.map((entry) {
                                   return _IndexedTaskItem(
-                                    originalIndex: entry.key,
                                     item: entry.value,
                                   );
                                 }).toList()
