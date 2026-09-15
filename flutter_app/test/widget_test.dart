@@ -141,7 +141,7 @@ void main() {
         reason: 'Serious task should appear before fun task');
   });
 
-  testWidgets('Left click on chart segment increases task weight', (WidgetTester tester) async {
+  testWidgets('Chart segment clicks adjust task weight by mouse button', (WidgetTester tester) async {
     final originalCwd = Directory.current.path;
     final tempDir = await Directory.systemTemp.createTemp('randomdom_chart_click_test_');
     Directory.current = tempDir.path;
@@ -202,12 +202,12 @@ void main() {
     await secondaryClick.up();
     await tester.pumpAndSettle();
 
-    expect(find.text('Проверить почту (2.00)'), findsOneWidget);
+    expect(find.text('Проверить почту (1.00)'), findsOneWidget);
 
     await tester.tapAt(chartCenter + const Offset(50, 0));
     await tester.pumpAndSettle();
 
-    expect(find.text('Проверить почту (3.00)'), findsOneWidget);
+    expect(find.text('Проверить почту (2.00)'), findsOneWidget);
   });
 
   test('Task balance helper moves weight evenly between serious and fun tasks', () {

@@ -1490,11 +1490,12 @@ class _RandomDomAppState extends State<RandomDomApp> {
         .join('|');
   }
 
-  Future<void> _increaseListItemWeight({
+  Future<void> _updateListItemWeightFromChart({
     required String listId,
     required String itemId,
     required String expectedChartSignature,
     required _TodoListViewMode expectedViewMode,
+    required double delta,
   }) async {
     final config = _config;
     if (config == null) {
@@ -1521,7 +1522,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
 
     final updatedItems = [...list.items];
     final oldWeight = updatedItems[itemIndex].weight;
-    final updatedWeight = min(oldWeight + 1, 9999.0);
+    final updatedWeight = (oldWeight + delta).clamp(0.1, 9999.0);
     if (updatedWeight == oldWeight) {
       return;
     }
@@ -1561,6 +1562,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
     Offset localPosition,
     List<RandomDomItem> sortedItems,
     Size chartSize,
+    double delta,
   ) {
     final tappedChartIndex = _TaskDistributionChart.itemIndexAtPosition(
       items: sortedItems,
@@ -1577,11 +1579,12 @@ class _RandomDomAppState extends State<RandomDomApp> {
     final updateFuture = _chartWeightUpdateFuture
         .catchError((Object _) {})
         .then<void>(
-          (_) => _increaseListItemWeight(
+          (_) => _updateListItemWeightFromChart(
             listId: tappedListId,
             itemId: tappedItemId,
             expectedChartSignature: tappedChartSignature,
             expectedViewMode: tappedViewMode,
+            delta: delta,
           ),
         );
     _chartWeightUpdateFuture = updateFuture;
@@ -1592,8 +1595,9 @@ class _RandomDomAppState extends State<RandomDomApp> {
     Offset localPosition,
     List<RandomDomItem> sortedItems,
     Size chartSize,
+    double delta,
   ) {
-    unawaited(_onChartPointerDown(localPosition, sortedItems, chartSize));
+    unawaited(_onChartPointerDown(localPosition, sortedItems, chartSize, delta));
   }
 
   @override
@@ -2006,13 +2010,19 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                           builder: (context, constraints) => Listener(
                                             behavior: HitTestBehavior.opaque,
                                             onPointerDown: (event) {
-                                              if ((event.buttons & kPrimaryButton) == 0) {
+                                              final weightDelta = switch (event.buttons) {
+                                                _ when (event.buttons & kPrimaryButton) != 0 => 1.0,
+                                                _ when (event.buttons & kSecondaryButton) != 0 => -1.0,
+                                                _ => null,
+                                              };
+                                              if (weightDelta == null) {
                                                 return;
                                               }
                                               _handleChartPointerDown(
                                                 event.localPosition,
                                                 sortedItems,
                                                 constraints.biggest,
+                                                weightDelta,
                                               );
                                             },
                                             child: CustomPaint(
