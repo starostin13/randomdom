@@ -2007,29 +2007,38 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                         width: 260,
                                         height: 260,
                                         child: LayoutBuilder(
-                                          builder: (context, constraints) => Listener(
+                                          builder: (context, constraints) => GestureDetector(
                                             behavior: HitTestBehavior.opaque,
-                                            onPointerDown: (event) {
-                                              final weightDelta = switch (event.buttons) {
-                                                _ when (event.buttons & kPrimaryButton) != 0 => 1.0,
-                                                _ when (event.buttons & kSecondaryButton) != 0 => -1.0,
-                                                _ when event.kind == PointerDeviceKind.touch => 1.0,
-                                                _ => null,
-                                              };
-                                              if (weightDelta == null) {
-                                                return;
-                                              }
-                                              _handleChartPointerDown(
-                                                event.localPosition,
-                                                sortedItems,
-                                                constraints.biggest,
-                                                weightDelta,
-                                              );
-                                            },
-                                            child: CustomPaint(
-                                              key: _taskDistributionChartKey,
-                                              painter: _TaskDistributionChart(items: sortedItems),
-                                              child: const SizedBox.expand(),
+                                            supportedDevices: const {PointerDeviceKind.touch},
+                                            onTapDown: (details) => _handleChartPointerDown(
+                                              details.localPosition,
+                                              sortedItems,
+                                              constraints.biggest,
+                                              1.0,
+                                            ),
+                                            child: Listener(
+                                              behavior: HitTestBehavior.opaque,
+                                              onPointerDown: (event) {
+                                                final weightDelta = switch (event.buttons) {
+                                                  _ when (event.buttons & kPrimaryButton) != 0 => 1.0,
+                                                  _ when (event.buttons & kSecondaryButton) != 0 => -1.0,
+                                                  _ => null,
+                                                };
+                                                if (weightDelta == null) {
+                                                  return;
+                                                }
+                                                _handleChartPointerDown(
+                                                  event.localPosition,
+                                                  sortedItems,
+                                                  constraints.biggest,
+                                                  weightDelta,
+                                                );
+                                              },
+                                              child: CustomPaint(
+                                                key: _taskDistributionChartKey,
+                                                painter: _TaskDistributionChart(items: sortedItems),
+                                                child: const SizedBox.expand(),
+                                              ),
                                             ),
                                           ),
                                         ),
