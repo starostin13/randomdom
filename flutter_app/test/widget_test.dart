@@ -205,8 +205,9 @@ void main() {
     expect(find.text('Проверить почту (1.00)'), findsOneWidget);
 
     final touchTap = await tester.createGesture(kind: PointerDeviceKind.touch);
-    await touchTap.addPointer(location: chartPoint);
-    await touchTap.down(chartPoint);
+    final touchPoint = chartCenter + const Offset(50, 0);
+    await touchTap.addPointer(location: touchPoint);
+    await touchTap.down(touchPoint);
     await touchTap.up();
     await tester.pumpAndSettle();
 
