@@ -2010,7 +2010,13 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                           builder: (context, constraints) => GestureDetector(
                                             behavior: HitTestBehavior.opaque,
                                             onTapDown: (details) {
-                                              if (details.kind == PointerDeviceKind.mouse) {
+                                              final isTapPointer = switch (details.kind) {
+                                                PointerDeviceKind.touch ||
+                                                PointerDeviceKind.stylus ||
+                                                PointerDeviceKind.invertedStylus => true,
+                                                _ => false,
+                                              };
+                                              if (!isTapPointer) {
                                                 return;
                                               }
                                               _handleChartPointerDown(
