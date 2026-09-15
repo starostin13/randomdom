@@ -204,7 +204,10 @@ void main() {
 
     expect(find.text('Проверить почту (1.00)'), findsOneWidget);
 
-    await tester.tapAt(chartCenter + const Offset(50, 0));
+    final touchTap = await tester.createGesture(kind: PointerDeviceKind.touch);
+    await touchTap.addPointer(location: chartPoint);
+    await touchTap.down(chartPoint);
+    await touchTap.up();
     await tester.pumpAndSettle();
 
     expect(find.text('Проверить почту (2.00)'), findsOneWidget);
