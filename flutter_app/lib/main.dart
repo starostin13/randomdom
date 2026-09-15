@@ -251,6 +251,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
   SelectionResult? _lastResult;
   bool _isSelecting = false;
   Future<void> _chartWeightUpdateFuture = Future<void>.value();
+  final Set<int> _activeChartTapPointers = <int>{};
   String? _rollingPreview;
   final Random _random = Random();
   final RandomDomExecutor _executor = RandomDomExecutor();
@@ -266,6 +267,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
 
   @override
   void dispose() {
+    _activeChartTapPointers.clear();
     _editingValueController.dispose();
     _editingWeightController.dispose();
     super.dispose();
@@ -2010,11 +2012,26 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                           builder: (context, constraints) => Listener(
                                             behavior: HitTestBehavior.opaque,
                                             onPointerDown: (event) {
-                                              final weightDelta = switch (event.buttons) {
-                                                _ when (event.buttons & kPrimaryButton) != 0 => 1.0,
-                                                _ when (event.buttons & kSecondaryButton) != 0 => -1.0,
-                                                _ => null,
-                                              };
+                                              final isTapPointer = event.kind == PointerDeviceKind.touch ||
+                                                  event.kind == PointerDeviceKind.stylus ||
+                                                  event.kind == PointerDeviceKind.invertedStylus;
+                                              if (isTapPointer) {
+                                                if (!_activeChartTapPointers.add(event.pointer)) {
+                                                  return;
+                                                }
+                                                _handleChartPointerDown(
+                                                  event.localPosition,
+                                                  sortedItems,
+                                                  constraints.biggest,
+                                                  1.0,
+                                                );
+                                                return;
+                                              }
+                                              final weightDelta = (event.buttons & kPrimaryButton) != 0
+                                                  ? 1.0
+                                                  : (event.buttons & kSecondaryButton) != 0
+                                                  ? -1.0
+                                                  : null;
                                               if (weightDelta == null) {
                                                 return;
                                               }
@@ -2030,6 +2047,12 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                               painter: _TaskDistributionChart(items: sortedItems),
                                               child: const SizedBox.expand(),
                                             ),
+                                            onPointerUp: (event) {
+                                              _activeChartTapPointers.remove(event.pointer);
+                                            },
+                                            onPointerCancel: (event) {
+                                              _activeChartTapPointers.remove(event.pointer);
+                                            },
                                           ),
                                         ),
                                       ),
