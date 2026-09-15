@@ -2025,9 +2025,6 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                                   constraints.biggest,
                                                   1.0,
                                                 );
-                                                scheduleMicrotask(() {
-                                                  _activeChartTapPointers.remove(event.pointer);
-                                                });
                                                 return;
                                               }
                                               final weightDelta = (event.buttons & kPrimaryButton) != 0
@@ -2050,6 +2047,12 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                               painter: _TaskDistributionChart(items: sortedItems),
                                               child: const SizedBox.expand(),
                                             ),
+                                            onPointerUp: (event) {
+                                              _activeChartTapPointers.remove(event.pointer);
+                                            },
+                                            onPointerCancel: (event) {
+                                              _activeChartTapPointers.remove(event.pointer);
+                                            },
                                           ),
                                         ),
                                       ),
