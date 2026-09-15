@@ -2016,16 +2016,18 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                                   event.kind == PointerDeviceKind.stylus ||
                                                   event.kind == PointerDeviceKind.invertedStylus;
                                               if (isTapPointer) {
-                                                if (_activeChartTapPointers.contains(event.pointer)) {
+                                                if (!_activeChartTapPointers.add(event.pointer)) {
                                                   return;
                                                 }
-                                                _activeChartTapPointers.add(event.pointer);
                                                 _handleChartPointerDown(
                                                   event.localPosition,
                                                   sortedItems,
                                                   constraints.biggest,
                                                   1.0,
                                                 );
+                                                scheduleMicrotask(() {
+                                                  _activeChartTapPointers.remove(event.pointer);
+                                                });
                                                 return;
                                               }
                                               final weightDelta = (event.buttons & kPrimaryButton) != 0
@@ -2042,12 +2044,6 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                                 constraints.biggest,
                                                 weightDelta,
                                               );
-                                            },
-                                            onPointerUp: (event) {
-                                              _activeChartTapPointers.remove(event.pointer);
-                                            },
-                                            onPointerCancel: (event) {
-                                              _activeChartTapPointers.remove(event.pointer);
                                             },
                                             child: CustomPaint(
                                               key: _taskDistributionChartKey,
