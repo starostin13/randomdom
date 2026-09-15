@@ -2009,7 +2009,11 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                         child: LayoutBuilder(
                                           builder: (context, constraints) => GestureDetector(
                                             behavior: HitTestBehavior.opaque,
-                                            supportedDevices: const {PointerDeviceKind.touch},
+                                            supportedDevices: const {
+                                              PointerDeviceKind.touch,
+                                              PointerDeviceKind.stylus,
+                                              PointerDeviceKind.invertedStylus,
+                                            },
                                             onTapDown: (details) => _handleChartPointerDown(
                                               details.localPosition,
                                               sortedItems,
@@ -2019,7 +2023,9 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                             child: Listener(
                                               behavior: HitTestBehavior.opaque,
                                               onPointerDown: (event) {
-                                                if (event.kind == PointerDeviceKind.touch) {
+                                                if (event.kind == PointerDeviceKind.touch ||
+                                                    event.kind == PointerDeviceKind.stylus ||
+                                                    event.kind == PointerDeviceKind.invertedStylus) {
                                                   return;
                                                 }
                                                 final weightDelta = switch (event.buttons) {
