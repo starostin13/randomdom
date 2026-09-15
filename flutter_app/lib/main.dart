@@ -251,6 +251,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
   SelectionResult? _lastResult;
   bool _isSelecting = false;
   Future<void> _chartWeightUpdateFuture = Future<void>.value();
+  final Set<int> _activeChartTapPointers = <int>{};
   String? _rollingPreview;
   final Random _random = Random();
   final RandomDomExecutor _executor = RandomDomExecutor();
@@ -2007,51 +2008,53 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                         width: 260,
                                         height: 260,
                                         child: LayoutBuilder(
-                                          builder: (context, constraints) => GestureDetector(
+                                          builder: (context, constraints) => Listener(
                                             behavior: HitTestBehavior.opaque,
-                                            onTapDown: (details) {
-                                              final isTapPointer = switch (details.kind) {
-                                                PointerDeviceKind.touch ||
-                                                PointerDeviceKind.stylus ||
-                                                PointerDeviceKind.invertedStylus => true,
-                                                _ => false,
-                                              };
-                                              if (!isTapPointer) {
-                                                return;
-                                              }
-                                              _handleChartPointerDown(
-                                                details.localPosition,
-                                                sortedItems,
-                                                constraints.biggest,
-                                                1.0,
-                                              );
-                                            },
-                                            child: Listener(
-                                              behavior: HitTestBehavior.opaque,
-                                              onPointerDown: (event) {
-                                                if (event.kind != PointerDeviceKind.mouse) {
+                                            onPointerDown: (event) {
+                                              final isTapPointer = event.kind == PointerDeviceKind.touch ||
+                                                  event.kind == PointerDeviceKind.stylus ||
+                                                  event.kind == PointerDeviceKind.invertedStylus;
+                                              if (isTapPointer) {
+                                                if (_activeChartTapPointers.isNotEmpty) {
                                                   return;
                                                 }
-                                                final weightDelta = (event.buttons & kPrimaryButton) != 0
-                                                    ? 1.0
-                                                    : (event.buttons & kSecondaryButton) != 0
-                                                    ? -1.0
-                                                    : null;
-                                                if (weightDelta == null) {
-                                                  return;
-                                                }
+                                                _activeChartTapPointers.add(event.pointer);
                                                 _handleChartPointerDown(
                                                   event.localPosition,
                                                   sortedItems,
                                                   constraints.biggest,
-                                                  weightDelta,
+                                                  1.0,
                                                 );
-                                              },
-                                              child: CustomPaint(
-                                                key: _taskDistributionChartKey,
-                                                painter: _TaskDistributionChart(items: sortedItems),
-                                                child: const SizedBox.expand(),
-                                              ),
+                                                return;
+                                              }
+                                              if (event.kind != PointerDeviceKind.mouse) {
+                                                return;
+                                              }
+                                              final weightDelta = (event.buttons & kPrimaryButton) != 0
+                                                  ? 1.0
+                                                  : (event.buttons & kSecondaryButton) != 0
+                                                  ? -1.0
+                                                  : null;
+                                              if (weightDelta == null) {
+                                                return;
+                                              }
+                                              _handleChartPointerDown(
+                                                event.localPosition,
+                                                sortedItems,
+                                                constraints.biggest,
+                                                weightDelta,
+                                              );
+                                            },
+                                            onPointerUp: (event) {
+                                              _activeChartTapPointers.remove(event.pointer);
+                                            },
+                                            onPointerCancel: (event) {
+                                              _activeChartTapPointers.remove(event.pointer);
+                                            },
+                                            child: CustomPaint(
+                                              key: _taskDistributionChartKey,
+                                              painter: _TaskDistributionChart(items: sortedItems),
+                                              child: const SizedBox.expand(),
                                             ),
                                           ),
                                         ),
