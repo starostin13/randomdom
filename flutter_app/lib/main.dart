@@ -2019,6 +2019,9 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                             child: Listener(
                                               behavior: HitTestBehavior.opaque,
                                               onPointerDown: (event) {
+                                                if (event.kind == PointerDeviceKind.touch) {
+                                                  return;
+                                                }
                                                 final weightDelta = switch (event.buttons) {
                                                   _ when (event.buttons & kPrimaryButton) != 0 => 1.0,
                                                   _ when (event.buttons & kSecondaryButton) != 0 => -1.0,
