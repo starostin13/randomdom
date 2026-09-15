@@ -2009,11 +2009,6 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                         child: LayoutBuilder(
                                           builder: (context, constraints) => GestureDetector(
                                             behavior: HitTestBehavior.opaque,
-                                            supportedDevices: const {
-                                              PointerDeviceKind.touch,
-                                              PointerDeviceKind.stylus,
-                                              PointerDeviceKind.invertedStylus,
-                                            },
                                             onTapDown: (details) => _handleChartPointerDown(
                                               details.localPosition,
                                               sortedItems,
@@ -2023,24 +2018,14 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                             child: Listener(
                                               behavior: HitTestBehavior.opaque,
                                               onPointerDown: (event) {
-                                                if (event.kind == PointerDeviceKind.touch ||
-                                                    event.kind == PointerDeviceKind.stylus ||
-                                                    event.kind == PointerDeviceKind.invertedStylus) {
-                                                  return;
-                                                }
-                                                final weightDelta = switch (event.buttons) {
-                                                  _ when (event.buttons & kPrimaryButton) != 0 => 1.0,
-                                                  _ when (event.buttons & kSecondaryButton) != 0 => -1.0,
-                                                  _ => null,
-                                                };
-                                                if (weightDelta == null) {
+                                                if ((event.buttons & kSecondaryButton) == 0) {
                                                   return;
                                                 }
                                                 _handleChartPointerDown(
                                                   event.localPosition,
                                                   sortedItems,
                                                   constraints.biggest,
-                                                  weightDelta,
+                                                  -1.0,
                                                 );
                                               },
                                               child: CustomPaint(
