@@ -2015,7 +2015,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                                   event.kind == PointerDeviceKind.stylus ||
                                                   event.kind == PointerDeviceKind.invertedStylus;
                                               if (isTapPointer) {
-                                                if (_activeChartTapPointers.isNotEmpty) {
+                                                if (_activeChartTapPointers.contains(event.pointer)) {
                                                   return;
                                                 }
                                                 _activeChartTapPointers.add(event.pointer);
