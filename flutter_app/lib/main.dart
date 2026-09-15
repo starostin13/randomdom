@@ -267,6 +267,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
 
   @override
   void dispose() {
+    _activeChartTapPointers.clear();
     _editingValueController.dispose();
     _editingWeightController.dispose();
     super.dispose();
