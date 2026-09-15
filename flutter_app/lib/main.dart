@@ -2027,9 +2027,6 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                                 );
                                                 return;
                                               }
-                                              if (event.kind != PointerDeviceKind.mouse) {
-                                                return;
-                                              }
                                               final weightDelta = (event.buttons & kPrimaryButton) != 0
                                                   ? 1.0
                                                   : (event.buttons & kSecondaryButton) != 0
