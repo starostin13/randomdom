@@ -260,4 +260,56 @@ void main() {
     expect(funWeights, everyElement(closeTo(1.5, 1e-6)));
     expect(TaskBalanceUtils.itemBalance(balanced), closeTo(0.0, 1e-6));
   });
+
+  test('Task balance helper redistributes residual weight when an item hits its bound', () {
+    final items = const [
+      RandomDomItem(
+        id: 'serious_1',
+        type: ItemType.text,
+        value: 'Проверить почту',
+        weight: 0.1,
+        category: ItemCategory.serious,
+      ),
+      RandomDomItem(
+        id: 'serious_2',
+        type: ItemType.text,
+        value: 'Сделать план',
+        weight: 2,
+        category: ItemCategory.serious,
+      ),
+      RandomDomItem(
+        id: 'fun_1',
+        type: ItemType.text,
+        value: 'Погулять',
+        weight: 1,
+        category: ItemCategory.fun,
+      ),
+      RandomDomItem(
+        id: 'fun_2',
+        type: ItemType.text,
+        value: 'Послушать музыку',
+        weight: 1,
+        category: ItemCategory.fun,
+      ),
+    ];
+
+    final balanced = TaskBalanceUtils.applyBalance(items, 0.5);
+    final seriousWeights = balanced
+        .where((item) => item.category == ItemCategory.serious)
+        .map((item) => item.weight)
+        .toList();
+    final funWeights = balanced
+        .where((item) => item.category == ItemCategory.fun)
+        .map((item) => item.weight)
+        .toList();
+
+    expect(seriousWeights.first, closeTo(0.1, 1e-6));
+    expect(seriousWeights.last, closeTo(0.925, 1e-6));
+    expect(funWeights, everyElement(closeTo(1.5375, 1e-6)));
+    expect(
+      balanced.fold<double>(0, (sum, item) => sum + item.weight),
+      closeTo(items.fold<double>(0, (sum, item) => sum + item.weight), 1e-6),
+    );
+    expect(TaskBalanceUtils.itemBalance(balanced), closeTo(0.5, 1e-6));
+  });
 }

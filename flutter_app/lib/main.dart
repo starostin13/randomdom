@@ -38,6 +38,9 @@ class RandomDomApp extends StatefulWidget {
 class TaskBalanceUtils {
   const TaskBalanceUtils._();
 
+  static const double _minItemWeight = 0.1;
+  static const double _maxItemWeight = 9999.0;
+
   static double itemBalance(List<RandomDomItem> items) {
     final seriousWeight = items
         .where((item) => item.category == ItemCategory.serious)
@@ -55,7 +58,7 @@ class TaskBalanceUtils {
   }
 
   static List<RandomDomItem> applyBalance(List<RandomDomItem> items, double balance) {
-    final normalizedBalance = balance.clamp(-1.0, 1.0);
+    final normalizedBalance = balance.clamp(-1.0, 1.0).toDouble();
     final seriousItems = items
         .where((item) => item.category == ItemCategory.serious)
         .toList(growable: false);
@@ -75,29 +78,88 @@ class TaskBalanceUtils {
       return items;
     }
 
-    final targetFunWeight = totalWeight * ((normalizedBalance + 1.0) / 2.0);
-    final delta = targetFunWeight - funWeight;
-    if (delta.abs() < 1e-9) {
+    final minReachableFunWeight = max(
+      funItems.length * _minItemWeight,
+      totalWeight - (seriousItems.length * _maxItemWeight),
+    );
+    final maxReachableFunWeight = min(
+      funItems.length * _maxItemWeight,
+      totalWeight - (seriousItems.length * _minItemWeight),
+    );
+    final targetFunWeight = (totalWeight * ((normalizedBalance + 1.0) / 2.0)).clamp(
+      minReachableFunWeight,
+      maxReachableFunWeight,
+    ).toDouble();
+
+    if ((targetFunWeight - funWeight).abs() < 1e-9) {
       return items;
     }
 
+    final adjustedSeriousWeights = _adjustGroupWeights(
+      seriousItems.map((item) => item.weight).toList(),
+      totalWeight - targetFunWeight,
+    );
+    final adjustedFunWeights = _adjustGroupWeights(
+      funItems.map((item) => item.weight).toList(),
+      targetFunWeight,
+    );
+
     final result = <RandomDomItem>[];
+    var seriousIndex = 0;
+    var funIndex = 0;
     for (final item in items) {
       if (item.category == ItemCategory.serious) {
-        final adjustedWeight = (item.weight - (delta / seriousItems.length)).clamp(0.1, 9999.0);
-        result.add(item.copyWith(weight: adjustedWeight));
+        result.add(item.copyWith(weight: adjustedSeriousWeights[seriousIndex]));
+        seriousIndex += 1;
         continue;
       }
 
-      final adjustedWeight = (item.weight + (delta / funItems.length)).clamp(0.1, 9999.0);
-      result.add(item.copyWith(weight: adjustedWeight));
+      result.add(item.copyWith(weight: adjustedFunWeights[funIndex]));
+      funIndex += 1;
     }
 
     return result;
   }
 
+  static List<double> _adjustGroupWeights(List<double> weights, double targetTotalWeight) {
+    final adjustedWeights = List<double>.from(weights);
+    final minTotalWeight = adjustedWeights.length * _minItemWeight;
+    final maxTotalWeight = adjustedWeights.length * _maxItemWeight;
+    var remainingDelta = targetTotalWeight.clamp(minTotalWeight, maxTotalWeight).toDouble() -
+        adjustedWeights.fold<double>(0, (sum, weight) => sum + weight);
+    var activeIndexes = List<int>.generate(adjustedWeights.length, (index) => index);
+
+    while (remainingDelta.abs() >= 1e-9 && activeIndexes.isNotEmpty) {
+      final perItemDelta = remainingDelta / activeIndexes.length;
+      var appliedDelta = 0.0;
+      final nextActiveIndexes = <int>[];
+
+      for (final index in activeIndexes) {
+        final currentWeight = adjustedWeights[index];
+        final nextWeight = (currentWeight + perItemDelta).clamp(
+          _minItemWeight,
+          _maxItemWeight,
+        ).toDouble();
+        adjustedWeights[index] = nextWeight;
+        appliedDelta += nextWeight - currentWeight;
+        if (nextWeight > _minItemWeight + 1e-9 && nextWeight < _maxItemWeight - 1e-9) {
+          nextActiveIndexes.add(index);
+        }
+      }
+
+      if (appliedDelta.abs() < 1e-9) {
+        break;
+      }
+
+      remainingDelta -= appliedDelta;
+      activeIndexes = nextActiveIndexes;
+    }
+
+    return adjustedWeights;
+  }
+
   static String label(double balance) {
-    final normalizedBalance = balance.clamp(-1.0, 1.0);
+    final normalizedBalance = balance.clamp(-1.0, 1.0).toDouble();
     if (normalizedBalance > 0.1) {
       return 'Больше весёлых';
     }
