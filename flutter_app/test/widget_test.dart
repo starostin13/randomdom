@@ -15,15 +15,14 @@ void main() {
   });
 
   testWidgets('Can switch task list to circular chart view', (WidgetTester tester) async {
-    final configFile = File('${Directory.systemTemp.path}${Platform.pathSeparator}config.json');
-    final originalConfig = await configFile.exists() ? await configFile.readAsString() : null;
+    final originalCwd = Directory.current.path;
+    final tempDir = await Directory.systemTemp.createTemp('randomdom_chart_view_test_');
+    Directory.current = tempDir.path;
+    final configFile = File('${tempDir.path}${Platform.pathSeparator}config.json');
     addTearDown(() async {
-      if (originalConfig == null) {
-        if (await configFile.exists()) {
-          await configFile.delete();
-        }
-      } else {
-        await configFile.writeAsString(originalConfig);
+      Directory.current = originalCwd;
+      if (await tempDir.exists()) {
+        await tempDir.delete(recursive: true);
       }
     });
 
@@ -70,15 +69,14 @@ void main() {
 
   testWidgets('Chart items are sorted with serious tasks first, then fun tasks',
       (WidgetTester tester) async {
-    final configFile = File('${Directory.systemTemp.path}${Platform.pathSeparator}config.json');
-    final originalConfig = await configFile.exists() ? await configFile.readAsString() : null;
+    final originalCwd = Directory.current.path;
+    final tempDir = await Directory.systemTemp.createTemp('randomdom_chart_sort_test_');
+    Directory.current = tempDir.path;
+    final configFile = File('${tempDir.path}${Platform.pathSeparator}config.json');
     addTearDown(() async {
-      if (originalConfig == null) {
-        if (await configFile.exists()) {
-          await configFile.delete();
-        }
-      } else {
-        await configFile.writeAsString(originalConfig);
+      Directory.current = originalCwd;
+      if (await tempDir.exists()) {
+        await tempDir.delete(recursive: true);
       }
     });
 

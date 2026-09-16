@@ -416,7 +416,6 @@ class _RandomDomAppState extends State<RandomDomApp> {
     final paths = <String>{
       'config.json',
       '../config.json',
-      '${Directory.systemTemp.path}${Platform.pathSeparator}config.json',
     };
 
     final separator = Platform.pathSeparator;
