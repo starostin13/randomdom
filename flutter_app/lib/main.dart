@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
@@ -24,6 +26,8 @@ void main() {
   runApp(const RandomDomApp());
 }
 
+enum _TodoListViewMode { list, chart }
+
 class RandomDomApp extends StatefulWidget {
   const RandomDomApp({super.key});
 
@@ -31,8 +35,264 @@ class RandomDomApp extends StatefulWidget {
   State<RandomDomApp> createState() => _RandomDomAppState();
 }
 
+class TaskBalanceUtils {
+  const TaskBalanceUtils._();
+
+  static const double _minItemWeight = 0.1;
+  static const double _maxItemWeight = 9999.0;
+
+  static double itemBalance(List<RandomDomItem> items) {
+    final seriousWeight = items
+        .where((item) => item.category == ItemCategory.serious)
+        .fold<double>(0, (sum, item) => sum + item.weight);
+    final funWeight = items
+        .where((item) => item.category == ItemCategory.fun)
+        .fold<double>(0, (sum, item) => sum + item.weight);
+    final totalWeight = seriousWeight + funWeight;
+
+    if (totalWeight <= 0) {
+      return 0;
+    }
+
+    return ((funWeight / totalWeight) * 2.0) - 1.0;
+  }
+
+  static List<RandomDomItem> applyBalance(List<RandomDomItem> items, double balance) {
+    final normalizedBalance = balance.clamp(-1.0, 1.0).toDouble();
+    final seriousItems = items
+        .where((item) => item.category == ItemCategory.serious)
+        .toList(growable: false);
+    final funItems = items
+        .where((item) => item.category == ItemCategory.fun)
+        .toList(growable: false);
+
+    if (seriousItems.isEmpty || funItems.isEmpty) {
+      return items;
+    }
+
+    final seriousWeight = seriousItems.fold<double>(0, (sum, item) => sum + item.weight);
+    final funWeight = funItems.fold<double>(0, (sum, item) => sum + item.weight);
+    final totalWeight = seriousWeight + funWeight;
+
+    if (totalWeight <= 0) {
+      return items;
+    }
+
+    final minReachableFunWeight = max(
+      funItems.length * _minItemWeight,
+      totalWeight - (seriousItems.length * _maxItemWeight),
+    );
+    final maxReachableFunWeight = min(
+      funItems.length * _maxItemWeight,
+      totalWeight - (seriousItems.length * _minItemWeight),
+    );
+    final targetFunWeight = (totalWeight * ((normalizedBalance + 1.0) / 2.0)).clamp(
+      minReachableFunWeight,
+      maxReachableFunWeight,
+    ).toDouble();
+
+    if ((targetFunWeight - funWeight).abs() < 1e-9) {
+      return items;
+    }
+
+    final adjustedSeriousWeights = _adjustGroupWeights(
+      seriousItems.map((item) => item.weight).toList(),
+      totalWeight - targetFunWeight,
+    );
+    final adjustedFunWeights = _adjustGroupWeights(
+      funItems.map((item) => item.weight).toList(),
+      targetFunWeight,
+    );
+
+    final result = <RandomDomItem>[];
+    var seriousIndex = 0;
+    var funIndex = 0;
+    for (final item in items) {
+      if (item.category == ItemCategory.serious) {
+        result.add(item.copyWith(weight: adjustedSeriousWeights[seriousIndex]));
+        seriousIndex += 1;
+        continue;
+      }
+
+      result.add(item.copyWith(weight: adjustedFunWeights[funIndex]));
+      funIndex += 1;
+    }
+
+    return result;
+  }
+
+  static List<double> _adjustGroupWeights(List<double> weights, double targetTotalWeight) {
+    final adjustedWeights = List<double>.from(weights);
+    final minTotalWeight = adjustedWeights.length * _minItemWeight;
+    final maxTotalWeight = adjustedWeights.length * _maxItemWeight;
+    var remainingDelta = targetTotalWeight.clamp(minTotalWeight, maxTotalWeight).toDouble() -
+        adjustedWeights.fold<double>(0, (sum, weight) => sum + weight);
+    var activeIndexes = List<int>.generate(adjustedWeights.length, (index) => index);
+
+    while (remainingDelta.abs() >= 1e-9 && activeIndexes.isNotEmpty) {
+      final perItemDelta = remainingDelta / activeIndexes.length;
+      var appliedDelta = 0.0;
+      final nextActiveIndexes = <int>[];
+
+      for (final index in activeIndexes) {
+        final currentWeight = adjustedWeights[index];
+        final nextWeight = (currentWeight + perItemDelta).clamp(
+          _minItemWeight,
+          _maxItemWeight,
+        ).toDouble();
+        adjustedWeights[index] = nextWeight;
+        appliedDelta += nextWeight - currentWeight;
+        if (nextWeight > _minItemWeight + 1e-9 && nextWeight < _maxItemWeight - 1e-9) {
+          nextActiveIndexes.add(index);
+        }
+      }
+
+      if (appliedDelta.abs() < 1e-9) {
+        break;
+      }
+
+      remainingDelta -= appliedDelta;
+      activeIndexes = nextActiveIndexes;
+    }
+
+    return adjustedWeights;
+  }
+
+  static String label(double balance) {
+    final normalizedBalance = balance.clamp(-1.0, 1.0).toDouble();
+    if (normalizedBalance > 0.1) {
+      return 'Больше весёлых';
+    }
+    if (normalizedBalance < -0.1) {
+      return 'Больше серьёзных';
+    }
+    return 'Сбалансировано';
+  }
+}
+
+class _TaskDistributionChart extends CustomPainter {
+  static const double _maxOuterRadius = 100.0;
+
+  const _TaskDistributionChart({
+    required this.items,
+  });
+
+  final List<RandomDomItem> items;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final totalWeight = items.fold<double>(0, (sum, item) => sum + item.weight);
+    if (totalWeight <= 0) {
+      return;
+    }
+
+    final center = Offset(size.width / 2, size.height / 2);
+    final outerRadius = _outerRadiusForSize(size);
+    final chartRect = Rect.fromCircle(center: center, radius: outerRadius);
+    var startAngle = -pi / 2;
+
+    for (var index = 0; index < items.length; index++) {
+      final item = items[index];
+      final sweepAngle = (item.weight / totalWeight) * (2 * pi);
+      final color = _colorForItem(item, index);
+
+      final paint = Paint()
+        ..style = PaintingStyle.fill
+        ..color = color;
+
+      canvas.drawArc(chartRect, startAngle, sweepAngle, true, paint);
+
+      if (item.category == ItemCategory.serious) {
+        final segmentPath = Path()
+          ..moveTo(center.dx, center.dy)
+          ..lineTo(
+            center.dx + outerRadius * cos(startAngle),
+            center.dy + outerRadius * sin(startAngle),
+          )
+          ..arcTo(chartRect, startAngle, sweepAngle, false)
+          ..close();
+        final hatchPaint = Paint()
+          ..color = const Color.fromARGB(55, 0, 0, 0)
+          ..strokeWidth = 2;
+
+        canvas
+          ..save()
+          ..clipPath(segmentPath);
+        for (var offset = -size.height;
+            offset < size.width + size.height;
+            offset += 12) {
+          canvas.drawLine(
+            Offset(offset, size.height),
+            Offset(offset + size.height, 0),
+            hatchPaint,
+          );
+        }
+        canvas.restore();
+      }
+
+      startAngle += sweepAngle;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _TaskDistributionChart oldDelegate) {
+    return oldDelegate.items != items;
+  }
+
+  static Color _colorForItem(RandomDomItem item, int index) {
+    final hue = item.category == ItemCategory.fun
+        ? 24.0 + (index * 14.0)
+        : 210.0 + (index * 11.0);
+    final color = HSLColor.fromAHSL(1.0, hue % 360.0, 0.75, 0.6);
+    return color.toColor();
+  }
+
+  static double _outerRadiusForSize(Size size) {
+    return min(_maxOuterRadius, size.shortestSide / 2);
+  }
+
+  static int? itemIndexAtPosition({
+    required List<RandomDomItem> items,
+    required Offset localPosition,
+    required Size size,
+  }) {
+    final totalWeight = items.fold<double>(0, (sum, item) => sum + item.weight);
+    if (totalWeight <= 0) {
+      return null;
+    }
+
+    final center = Offset(size.width / 2, size.height / 2);
+    final outerRadius = _outerRadiusForSize(size);
+    final distanceFromCenter = (localPosition - center).distance;
+    if (distanceFromCenter > outerRadius) {
+      return null;
+    }
+
+    final pointAngle = atan2(localPosition.dy - center.dy, localPosition.dx - center.dx);
+    var normalizedAngle = pointAngle + (pi / 2);
+    if (normalizedAngle < 0) {
+      normalizedAngle += 2 * pi;
+    }
+
+    var cumulativeAngle = 0.0;
+    for (var index = 0; index < items.length; index++) {
+      final item = items[index];
+      final sweepAngle = (item.weight / totalWeight) * (2 * pi);
+      if (normalizedAngle < cumulativeAngle + sweepAngle) {
+        return index;
+      }
+      cumulativeAngle += sweepAngle;
+    }
+
+    return items.isEmpty ? null : items.length - 1;
+  }
+}
+
 class _RandomDomAppState extends State<RandomDomApp> {
   static const MethodChannel _androidAppsChannel = MethodChannel('randomdom/android_apps');
+  static const ValueKey<String> _taskDistributionChartKey = ValueKey<String>(
+    'task_distribution_chart',
+  );
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   RandomDomConfig? _config;
   String? _configFilePath;
@@ -44,6 +304,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
   bool _showDebugLog = false;
   final List<String> _runtimeLog = [];
   String _selectedListId = 'main';
+  _TodoListViewMode _listViewMode = _TodoListViewMode.list;
   int? _editingIndex;
   ItemType _editingType = ItemType.text;
   ItemCategory _editingCategory = ItemCategory.serious;
@@ -51,6 +312,9 @@ class _RandomDomAppState extends State<RandomDomApp> {
   final TextEditingController _editingWeightController = TextEditingController();
   SelectionResult? _lastResult;
   bool _isSelecting = false;
+  Future<void> _chartWeightUpdateFuture = Future<void>.value();
+  Future<void> _balanceUpdateFuture = Future<void>.value();
+  final Set<int> _activeChartTapPointers = <int>{};
   String? _rollingPreview;
   final Random _random = Random();
   final RandomDomExecutor _executor = RandomDomExecutor();
@@ -66,6 +330,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
 
   @override
   void dispose() {
+    _activeChartTapPointers.clear();
     _editingValueController.dispose();
     _editingWeightController.dispose();
     super.dispose();
@@ -490,6 +755,43 @@ class _RandomDomAppState extends State<RandomDomApp> {
     });
 
     await _persistConfig(updatedConfig);
+  }
+
+  Future<void> _applyCategoryBalance(double balance) async {
+    final config = _config;
+    if (config == null) {
+      return;
+    }
+
+    final list = config.lists[_selectedListId];
+    if (list == null) {
+      return;
+    }
+
+    final updatedItems = TaskBalanceUtils.applyBalance(list.items, balance);
+    if (updatedItems == list.items) {
+      return;
+    }
+
+    final updatedList = list.copyWith(items: updatedItems);
+    final updatedConfig = config.copyWith(
+      schemaVersion: 2,
+      lists: {...config.lists, _selectedListId: updatedList},
+    );
+
+    setState(() {
+      _config = updatedConfig;
+      _status = 'Баланс задач: ${TaskBalanceUtils.label(balance)}';
+    });
+    await _persistConfig(updatedConfig);
+  }
+
+  void _queueCategoryBalanceUpdate(double balance) {
+    final updateFuture = _balanceUpdateFuture
+        .catchError((Object _) {})
+        .then<void>((_) => _applyCategoryBalance(balance));
+    _balanceUpdateFuture = updateFuture;
+    unawaited(updateFuture);
   }
 
   Future<void> _saveAndApplyConfig(RandomDomConfig config) async {
@@ -1236,6 +1538,173 @@ class _RandomDomAppState extends State<RandomDomApp> {
     return result.item.value;
   }
 
+  List<RandomDomItem> _currentItems() {
+    final currentList = _config?.lists[_selectedListId];
+    return currentList?.items ?? const <RandomDomItem>[];
+  }
+
+  List<RandomDomItem> _chartSortedItems(List<RandomDomItem> items) {
+    final sortedItems = List<RandomDomItem>.from(items)
+      ..sort((a, b) {
+        if (a.category == ItemCategory.serious && b.category == ItemCategory.fun) {
+          return -1;
+        } else if (a.category == ItemCategory.fun && b.category == ItemCategory.serious) {
+          return 1;
+        }
+        return 0;
+      });
+    return sortedItems;
+  }
+
+  String _chartItemsSignature(List<RandomDomItem> sortedItems) {
+    return sortedItems
+        .map((item) => '${item.id}:${item.category.name}:${item.weight.toStringAsFixed(6)}')
+        .join('|');
+  }
+
+  Future<void> _updateListItemWeightFromChart({
+    required String listId,
+    required String itemId,
+    required String expectedChartSignature,
+    required _TodoListViewMode expectedViewMode,
+    required double delta,
+  }) async {
+    final config = _config;
+    if (config == null) {
+      return;
+    }
+    final list = config.lists[listId];
+    if (list == null) {
+      return;
+    }
+    if (_listViewMode != expectedViewMode) {
+      return;
+    }
+    if (_selectedListId != listId) {
+      return;
+    }
+    final currentSortedItems = _chartSortedItems(list.items);
+    if (_chartItemsSignature(currentSortedItems) != expectedChartSignature) {
+      return;
+    }
+    final itemIndex = list.items.indexWhere((item) => item.id == itemId);
+    if (itemIndex < 0) {
+      return;
+    }
+
+    final updatedItems = [...list.items];
+    final oldWeight = updatedItems[itemIndex].weight;
+    final updatedWeight = (oldWeight + delta).clamp(0.1, 9999.0);
+    if (updatedWeight == oldWeight) {
+      return;
+    }
+    final updatedItem = updatedItems[itemIndex].copyWith(weight: updatedWeight);
+    updatedItems[itemIndex] = updatedItem;
+
+    final updatedConfig = config.copyWith(
+      schemaVersion: 2,
+      lists: {...config.lists, listId: list.copyWith(items: updatedItems)},
+    );
+
+    try {
+      await _persistConfig(updatedConfig);
+      if (!mounted) {
+        return;
+      }
+      final latestConfig = _config;
+      var nextConfig = updatedConfig;
+      RandomDomItem? nextItem = updatedItem;
+      if (latestConfig != null) {
+        final latestList = latestConfig.lists[listId];
+        final latestItemIndex =
+            latestList?.items.indexWhere((item) => item.id == itemId) ?? -1;
+        if (latestList == null || latestItemIndex < 0) {
+          nextConfig = latestConfig;
+          nextItem = null;
+        } else {
+          final latestItem = latestList.items[latestItemIndex];
+          if ((latestItem.weight - oldWeight).abs() > 1e-9) {
+            nextConfig = latestConfig;
+            nextItem = latestItem;
+          } else {
+            final rebasedItems = [...latestList.items];
+            nextItem = latestItem.copyWith(weight: updatedWeight);
+            rebasedItems[latestItemIndex] = nextItem;
+            nextConfig = latestConfig.copyWith(
+              schemaVersion: 2,
+              lists: {
+                ...latestConfig.lists,
+                listId: latestList.copyWith(items: rebasedItems),
+              },
+            );
+          }
+        }
+      }
+      final appliedConfig = nextConfig;
+      final appliedItem = nextItem;
+      setState(() {
+        _config = appliedConfig;
+        if (appliedItem != null &&
+            _lastResult?.sourceListId == listId &&
+            _lastResult?.item.id == appliedItem.id) {
+          _lastResult = _lastResult!.copyWith(item: appliedItem);
+        }
+      });
+    } catch (error, stackTrace) {
+      _addLog('Chart weight persist error: $error');
+      _addLog('Stack trace: $stackTrace');
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _error = 'Ошибка сохранения конфигурации: $error';
+      });
+    }
+  }
+
+  Future<void> _onChartPointerDown(
+    Offset localPosition,
+    List<RandomDomItem> sortedItems,
+    Size chartSize,
+    double delta,
+  ) {
+    final tappedChartIndex = _TaskDistributionChart.itemIndexAtPosition(
+      items: sortedItems,
+      localPosition: localPosition,
+      size: chartSize,
+    );
+    if (tappedChartIndex == null) {
+      return Future<void>.value();
+    }
+    final tappedItemId = sortedItems[tappedChartIndex].id;
+    final tappedListId = _selectedListId;
+    final tappedViewMode = _listViewMode;
+    final updateFuture = _chartWeightUpdateFuture
+        .catchError((Object _) {})
+        .then<void>(
+          (_) => _updateListItemWeightFromChart(
+            listId: tappedListId,
+            itemId: tappedItemId,
+            expectedChartSignature: _chartItemsSignature(
+              _chartSortedItems(_currentItems()),
+            ),
+            expectedViewMode: tappedViewMode,
+            delta: delta,
+          ),
+        );
+    _chartWeightUpdateFuture = updateFuture;
+    return updateFuture;
+  }
+
+  void _handleChartPointerDown(
+    Offset localPosition,
+    List<RandomDomItem> sortedItems,
+    Size chartSize,
+    double delta,
+  ) {
+    unawaited(_onChartPointerDown(localPosition, sortedItems, chartSize, delta));
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -1335,6 +1804,41 @@ class _RandomDomAppState extends State<RandomDomApp> {
                             ),
                           ),
                         Text('Настроение: ${_selectedMood == 'bad' ? 'плохо' : 'хорошо'}'),
+                        const SizedBox(height: 12),
+                        Builder(
+                          builder: (context) {
+                            final items = _currentItems();
+                            final hasBothCategories = items.any((item) => item.category == ItemCategory.fun) &&
+                                items.any((item) => item.category == ItemCategory.serious);
+                            final balance = TaskBalanceUtils.itemBalance(items);
+                            final funShare = ((balance + 1.0) / 2.0 * 100).round();
+                            final seriousShare = 100 - funShare;
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Баланс задач: ${TaskBalanceUtils.label(balance)}'),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Серьёзные $seriousShare% / Весёлые $funShare%',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                                Slider(
+                                  value: balance.clamp(-1.0, 1.0),
+                                  min: -1.0,
+                                  max: 1.0,
+                                  divisions: 20,
+                                  label: TaskBalanceUtils.label(balance),
+                                  onChanged: hasBothCategories
+                                      ? (value) {
+                                          _queueCategoryBalanceUpdate(value);
+                                        }
+                                      : null,
+                                ),
+                              ],
+                            );
+                          },
+                        ),
                         const SizedBox(height: 12),
                         const Text('Список'),
                         DropdownButton<String>(
@@ -1470,6 +1974,27 @@ class _RandomDomAppState extends State<RandomDomApp> {
                             ),
                           ],
                         ),
+                        const SizedBox(height: 8),
+                        SegmentedButton<_TodoListViewMode>(
+                          segments: const [
+                            ButtonSegment(
+                              value: _TodoListViewMode.list,
+                              label: Text('Список'),
+                              icon: Icon(Icons.list),
+                            ),
+                            ButtonSegment(
+                              value: _TodoListViewMode.chart,
+                              label: Text('Круговая диаграмма'),
+                              icon: Icon(Icons.pie_chart),
+                            ),
+                          ],
+                          selected: {_listViewMode},
+                          onSelectionChanged: (selection) {
+                            setState(() {
+                              _listViewMode = selection.first;
+                            });
+                          },
+                        ),
                         if (_editingIndex != null)
                           Card(
                             margin: const EdgeInsets.only(top: 8, bottom: 8),
@@ -1568,11 +2093,93 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                   (isWideAndroidWindow ? 136.0 : 16.0) + mediaQuery.padding.bottom;
                               final listRightPadding =
                                   (isWideAndroidWindow ? 180.0 : 0.0) + mediaQuery.padding.right;
-                              final currentList = _config!.lists[_selectedListId];
-                              final items = currentList?.items ?? const <RandomDomItem>[];
+                              final items = _currentItems();
                               if (items.isEmpty) {
                                 return const Center(child: Text('Список пуст'));
                               }
+
+                              if (_listViewMode == _TodoListViewMode.chart) {
+                                final sortedItems = _chartSortedItems(items);
+                                return SingleChildScrollView(
+                                  padding: EdgeInsets.only(
+                                    right: listRightPadding,
+                                    bottom: listBottomPadding,
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      const SizedBox(height: 8),
+                                      SizedBox(
+                                        width: 260,
+                                        height: 260,
+                                        child: LayoutBuilder(
+                                          builder: (context, constraints) => Listener(
+                                            behavior: HitTestBehavior.opaque,
+                                            onPointerDown: (event) {
+                                              final isTapPointer = event.kind == PointerDeviceKind.touch ||
+                                                  event.kind == PointerDeviceKind.stylus ||
+                                                  event.kind == PointerDeviceKind.invertedStylus;
+                                              if (isTapPointer) {
+                                                if (!_activeChartTapPointers.add(event.pointer)) {
+                                                  return;
+                                                }
+                                                _handleChartPointerDown(
+                                                  event.localPosition,
+                                                  sortedItems,
+                                                  constraints.biggest,
+                                                  1.0,
+                                                );
+                                                return;
+                                              }
+                                              final weightDelta = (event.buttons & kPrimaryButton) != 0
+                                                  ? 1.0
+                                                  : (event.buttons & kSecondaryButton) != 0
+                                                  ? -1.0
+                                                  : null;
+                                              if (weightDelta == null) {
+                                                return;
+                                              }
+                                              _handleChartPointerDown(
+                                                event.localPosition,
+                                                sortedItems,
+                                                constraints.biggest,
+                                                weightDelta,
+                                              );
+                                            },
+                                            child: CustomPaint(
+                                              key: _taskDistributionChartKey,
+                                              painter: _TaskDistributionChart(items: sortedItems),
+                                              child: const SizedBox.expand(),
+                                            ),
+                                            onPointerUp: (event) {
+                                              _activeChartTapPointers.remove(event.pointer);
+                                            },
+                                            onPointerCancel: (event) {
+                                              _activeChartTapPointers.remove(event.pointer);
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 8,
+                                        children: sortedItems.asMap().entries.map((entry) {
+                                          final index = entry.key;
+                                          final item = entry.value;
+                                          return Chip(
+                                            avatar: CircleAvatar(
+                                              backgroundColor: _TaskDistributionChart._colorForItem(item, index),
+                                              child: const SizedBox.shrink(),
+                                            ),
+                                            label: Text('${item.value} (${item.weight.toStringAsFixed(2)})'),
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }
+
                               return ListView.separated(
                                 padding: EdgeInsets.only(
                                   right: listRightPadding,
