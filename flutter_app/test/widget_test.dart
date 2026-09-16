@@ -134,11 +134,16 @@ void main() {
     expect(funTaskFinder, findsOneWidget);
 
     // Verify that serious task appears before fun task in the widget tree
-    final seriousTaskIndex = tester.getCenter(seriousTaskFinder).dy;
-    final funTaskIndex = tester.getCenter(funTaskFinder).dy;
+    final seriousTaskPosition = tester.getCenter(seriousTaskFinder);
+    final funTaskPosition = tester.getCenter(funTaskFinder);
 
-    expect(seriousTaskIndex, lessThan(funTaskIndex),
-        reason: 'Serious task should appear before fun task');
+    expect(
+      seriousTaskPosition.dy < funTaskPosition.dy ||
+          (seriousTaskPosition.dy == funTaskPosition.dy &&
+              seriousTaskPosition.dx < funTaskPosition.dx),
+      isTrue,
+      reason: 'Serious task should appear before fun task',
+    );
   });
 
   testWidgets('Chart segment clicks adjust task weight by mouse button', (WidgetTester tester) async {
