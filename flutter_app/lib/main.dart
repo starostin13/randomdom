@@ -1670,14 +1670,15 @@ class _RandomDomAppState extends State<RandomDomApp> {
     final tappedItemId = sortedItems[tappedChartIndex].id;
     final tappedListId = _selectedListId;
     final tappedViewMode = _listViewMode;
-    final tappedChartSignature = _chartItemsSignature(sortedItems);
     final updateFuture = _chartWeightUpdateFuture
         .catchError((Object _) {})
         .then<void>(
           (_) => _updateListItemWeightFromChart(
             listId: tappedListId,
             itemId: tappedItemId,
-            expectedChartSignature: tappedChartSignature,
+            expectedChartSignature: _chartItemsSignature(
+              _chartSortedItems(_currentItems()),
+            ),
             expectedViewMode: tappedViewMode,
             delta: delta,
           ),
