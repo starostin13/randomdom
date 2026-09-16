@@ -1541,11 +1541,43 @@ class _RandomDomAppState extends State<RandomDomApp> {
       if (!mounted) {
         return;
       }
+      final latestConfig = _config;
+      var nextConfig = updatedConfig;
+      RandomDomItem? nextItem = updatedItem;
+      if (latestConfig != null) {
+        final latestList = latestConfig.lists[listId];
+        final latestItemIndex =
+            latestList?.items.indexWhere((item) => item.id == itemId) ?? -1;
+        if (latestList == null || latestItemIndex < 0) {
+          nextConfig = latestConfig;
+          nextItem = null;
+        } else {
+          final latestItem = latestList.items[latestItemIndex];
+          if ((latestItem.weight - oldWeight).abs() > 1e-9) {
+            nextConfig = latestConfig;
+            nextItem = latestItem;
+          } else {
+            final rebasedItems = [...latestList.items];
+            nextItem = latestItem.copyWith(weight: updatedWeight);
+            rebasedItems[latestItemIndex] = nextItem;
+            nextConfig = latestConfig.copyWith(
+              schemaVersion: 2,
+              lists: {
+                ...latestConfig.lists,
+                listId: latestList.copyWith(items: rebasedItems),
+              },
+            );
+          }
+        }
+      }
+      final appliedConfig = nextConfig;
+      final appliedItem = nextItem;
       setState(() {
-        _config = updatedConfig;
-        if (_lastResult?.sourceListId == listId &&
-            _lastResult?.item.id == updatedItem.id) {
-          _lastResult = _lastResult!.copyWith(item: updatedItem);
+        _config = appliedConfig;
+        if (appliedItem != null &&
+            _lastResult?.sourceListId == listId &&
+            _lastResult?.item.id == appliedItem.id) {
+          _lastResult = _lastResult!.copyWith(item: appliedItem);
         }
       });
     } catch (error, stackTrace) {
