@@ -59,6 +59,8 @@ void main() {
     await tester.pumpWidget(const RandomDomApp());
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Хорошо'));
+    await tester.pumpAndSettle();
     expect(find.text('Круговая диаграмма'), findsOneWidget);
     await tester.tap(find.text('Круговая диаграмма'));
     await tester.pumpAndSettle();
