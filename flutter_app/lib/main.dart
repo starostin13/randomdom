@@ -313,6 +313,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
   SelectionResult? _lastResult;
   bool _isSelecting = false;
   Future<void> _chartWeightUpdateFuture = Future<void>.value();
+  Future<void> _balanceUpdateFuture = Future<void>.value();
   final Set<int> _activeChartTapPointers = <int>{};
   String? _rollingPreview;
   final Random _random = Random();
@@ -783,6 +784,14 @@ class _RandomDomAppState extends State<RandomDomApp> {
       _status = 'Баланс задач: ${TaskBalanceUtils.label(balance)}';
     });
     await _persistConfig(updatedConfig);
+  }
+
+  void _queueCategoryBalanceUpdate(double balance) {
+    final updateFuture = _balanceUpdateFuture
+        .catchError((Object _) {})
+        .then<void>((_) => _applyCategoryBalance(balance));
+    _balanceUpdateFuture = updateFuture;
+    unawaited(updateFuture);
   }
 
   Future<void> _saveAndApplyConfig(RandomDomConfig config) async {
@@ -1822,7 +1831,7 @@ class _RandomDomAppState extends State<RandomDomApp> {
                                   label: TaskBalanceUtils.label(balance),
                                   onChanged: hasBothCategories
                                       ? (value) {
-                                          _applyCategoryBalance(value);
+                                          _queueCategoryBalanceUpdate(value);
                                         }
                                       : null,
                                 ),
